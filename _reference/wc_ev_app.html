@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WC · EV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+:root {
+  --bg-base: #0b0c10;
+  --bg-surface: #15171c;
+  --bg-elevated: #1c1f27;
+  --border-default: #26292f;
+  --border-focus: #3f444f;
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --text-tertiary: #6b7280;
+  --text-numeric: #ffffff;
+  --positive: #34d399;
+  --positive-soft: rgba(52, 211, 153, 0.12);
+  --fair: #fbbf24;
+  --fair-soft: rgba(251, 191, 36, 0.12);
+  --negative: #fb7185;
+  --negative-soft: rgba(251, 113, 133, 0.12);
+  --brand: #5eead4;
+  --brand-soft: rgba(94, 234, 212, 0.10);
+}
+* { box-sizing: border-box; }
+html, body { background: var(--bg-base); color: var(--text-primary); margin: 0; padding: 0; font-family: 'Inter', system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif; -webkit-font-smoothing: antialiased; }
+.mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-feature-settings: 'tnum' 1, 'zero' 1; letter-spacing: -0.01em; }
+.display { font-family: 'Inter', system-ui, sans-serif; letter-spacing: -0.025em; font-weight: 600; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-focus); }
+@keyframes fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.fade-in { animation: fade-in 0.2s ease-out; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 1s linear infinite; }
+@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
+.no-tap-highlight { -webkit-tap-highlight-color: transparent; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="env,react">
+const { useState, useRef, useCallback, useEffect, useMemo, useReducer } = React;
+
+// ============================================================
+// SYSTEM PROMPT for the analyzer API
+// ============================================================
+const SYSTEM_PROMPT = `你是 2026 FIFA 世界盃台灣運彩專業分析師，使用價值投注 (Value Betting) 方法論。
+
+# 核心數學
+- 隱含機率 = (1 / 賠率) × 100%
+- 同盤抽水率 = 該玩法所有選項的隱含機率總和 - 100%
+- 期望值 EV = (真實機率 × 賠率) - 1
+- Value Bet 條件：edge ≥ +3%（其中 edge = 真實機率下界 - 隱含機率）
+
+# 紀律規則（絕對不違反）
+1. 單注 1-3%，最高 5%（僅限 edge ≥ +8% 的超強 value）
+2. 單場最大總曝險：8%
+3. 嚴禁推薦串關/過關
+4. 嚴禁推薦正確比數（抽水 30%+）
+5. 賠率 < 1.30 強烈警告
+6. 「半全場」中強隊/強隊 < 1.20 列為 AVOID
+7. 必須提醒賽前 1 小時確認首發名單
+
+# 2026 世界盃球隊強度評分（100 = 世界頂級）
+頂級 (90-98)：西班牙 96、法國 94、阿根廷 93、英格蘭 92、巴西 91
+強權 (84-89)：德國 88、葡萄牙 87、荷蘭 86、義大利 85
+次強 (78-83)：比利時 82、烏拉圭 81、克羅埃西亞 80、摩洛哥 79、墨西哥 78
+中游 (72-77)：美國 76、瑞士 75、塞內加爾 74、丹麥 73、日本 73、南韓 72、哥倫比亞 72
+中下 (65-71)：厄瓜多 71、奈及利亞 70、伊朗 69、加拿大 69、波蘭 68、突尼西亞 67、捷克 67、土耳其 67、澳洲 66、奧地利 66、塞爾維亞 65、蘇格蘭 65
+弱旅 (58-64)：沙烏地 63、卡達 62、南非 61、巴拿馬 60、巴拉圭 60、烏茲別克 59、紐西蘭 58
+小國 (45-57)：佛得角 55、海地 52、玻利維亞 51、剛果 51、約旦 50、古拉索 48
+
+# 真實機率估計指引
+- 差距 30+：強隊勝 80-92%、平 6-12%、弱隊勝 2-8%；大 3.5 機率 60-72%
+- 差距 20-29：強隊勝 65-78%、平 13-20%、弱隊勝 5-15%
+- 差距 10-19：強隊勝 48-60%、平 22-28%、弱隊勝 15-25%
+- 差距 5-9：強隊勝 38-48%、平 26-32%、弱隊勝 22-30%
+- 差距 <5：三方接近，平局可達 28-35%
+
+# 結構性修正
+- 小組賽第一輪：球隊謹慎，平局率 +5%
+- 小組賽第三輪：已晉級可能輪換，弱隊勝率 +8-12%
+- 美國夏季高溫主辦城市通常壓低進球數
+
+# 輸出格式（必須是純 JSON，不可包 markdown）
+{
+  "match": { "teamA": "...", "teamB": "...", "datetime": "...", "stage": "...", "venue": "..." },
+  "teamRatings": { "teamA": 數字, "teamB": 數字, "gap": 差距, "favorite": "..." },
+  "marketVig": [{ "market": "...", "vig": "X.X%" }],
+  "analysis": [
+    {
+      "market": "玩法",
+      "selection": "選項",
+      "odds": 1.88,
+      "impliedProb": 53.2,
+      "estimatedProb": { "min": 58, "max": 62 },
+      "edge": 4.8,
+      "verdict": "VALUE | FAIR | AVOID",
+      "reasoning": "1-2 句"
+    }
+  ],
+  "recommendations": [
+    { "bet": "...", "market": "...", "selection": "...", "odds": X, "stakePct": X, "expectedEdge": "+X.X%", "estimatedProb": { "min": X, "max": X }, "edge": X, "reasoning": "..." }
+  ],
+  "totalExposurePct": X,
+  "avoid": [{ "bet": "...", "reason": "..." }],
+  "preMatchChecks": ["..."],
+  "summary": "2-3 句"
+}
+
+若無法判讀，回 { "error": "原因" }`;
+
+// ============================================================
+// STORAGE
+// ============================================================
+const STORAGE_KEY = 'wc_ev_app_v1';
+const DEFAULT_STATE = {
+  apiKey: '',
+  bankroll: 10000,
+  matches: [],
+  bets: [],
+  lastExport: null
+};
+
+const storage = {
+  load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return { ...DEFAULT_STATE };
+      const parsed = JSON.parse(raw);
+      return { ...DEFAULT_STATE, ...parsed };
+    } catch (e) { return { ...DEFAULT_STATE }; }
+  },
+  save(state) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+};
+
+// ============================================================
+// UTILITIES
+// ============================================================
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+const formatNT = n => 'NT$' + Math.round(n).toLocaleString();
+const formatPct = (n, d = 1) => (n >= 0 ? '+' : '') + n.toFixed(d) + '%';
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const dateLabel = iso => {
+  const d = new Date(iso);
+  const days = ['日', '一', '二', '三', '四', '五', '六'];
+  return `${d.getMonth() + 1}/${d.getDate()} (週${days[d.getDay()]})`;
+};
+
+// Bet resolution: given a bet + actual score, returns 'win' | 'lose' | 'void' | 'unknown'
+// Surfaces ASSUMPTION (Karpathy 1): only supports 90-minute results. Extra time / penalties not auto-resolved.
+function resolveBet(bet, fullScore, halfScore, teamA, teamB) {
+  if (!fullScore || fullScore.length !== 2) return 'unknown';
+  const [a, b] = fullScore.map(Number);
+  if (Number.isNaN(a) || Number.isNaN(b)) return 'unknown';
+  const total = a + b;
+  const market = (bet.market || '').trim();
+  const sel = (bet.selection || '').trim();
+  const isHomeRef = s => s.includes('主') || s === teamA || s.includes(teamA);
+  const isAwayRef = s => s.includes('客') || s === teamB || s.includes(teamB);
+  const isDrawRef = s => s.includes('和') || s.toLowerCase().includes('draw');
+
+  // 不讓分 / 1X2
+  if (market === '不讓分' || /^1\s*X\s*2/i.test(market)) {
+    if (isDrawRef(sel)) return a === b ? 'win' : 'lose';
+    if (isHomeRef(sel)) return a > b ? 'win' : 'lose';
+    if (isAwayRef(sel)) return b > a ? 'win' : 'lose';
+  }
+  // 讓分 X:Y
+  const handicapM = market.match(/讓分?\s*(\d+)\s*[:：]\s*(\d+)/);
+  if (handicapM) {
+    const hHome = parseInt(handicapM[1]);
+    const hAway = parseInt(handicapM[2]);
+    const adjA = a - hHome;
+    const adjB = b - hAway;
+    if (isDrawRef(sel)) return adjA === adjB ? 'win' : 'lose';
+    if (isHomeRef(sel)) {
+      if (adjA > adjB) return 'win';
+      if (adjA === adjB) return 'void';
+      return 'lose';
+    }
+    if (isAwayRef(sel)) {
+      if (adjB > adjA) return 'win';
+      if (adjA === adjB) return 'void';
+      return 'lose';
+    }
+  }
+  // 大小 X.Y (full total)
+  if (/大小/.test(market) && !/半場/.test(market)) {
+    const lineM = market.match(/(\d+\.?\d*)/);
+    if (lineM) {
+      const line = parseFloat(lineM[1]);
+      // Per-team 大小: e.g. "德國 大小 3.5"
+      const teamPrefix = market.replace(/大小.*$/, '').trim();
+      let goals = total;
+      if (teamPrefix && teamPrefix !== '[總分]' && teamPrefix !== '總分') {
+        if (teamPrefix.includes(teamA) || teamA?.includes(teamPrefix)) goals = a;
+        else if (teamPrefix.includes(teamB) || teamB?.includes(teamPrefix)) goals = b;
+      }
+      if (sel.includes('大')) return goals > line ? 'win' : 'lose';
+      if (sel.includes('小')) return goals < line ? 'win' : 'lose';
+    }
+  }
+  // 半場大小
+  if (/半場.*大小/.test(market) && halfScore) {
+    const lineM = market.match(/(\d+\.?\d*)/);
+    if (lineM) {
+      const line = parseFloat(lineM[1]);
+      const ht = (Number(halfScore[0]) || 0) + (Number(halfScore[1]) || 0);
+      if (sel.includes('大')) return ht > line ? 'win' : 'lose';
+      if (sel.includes('小')) return ht < line ? 'win' : 'lose';
+    }
+  }
+  // 兩隊都進球
+  if (/兩隊.*進球|BTTS/i.test(market)) {
+    const both = a > 0 && b > 0;
+    if (sel === '是' || sel.toLowerCase() === 'yes') return both ? 'win' : 'lose';
+    if (sel === '否' || sel.toLowerCase() === 'no') return !both ? 'win' : 'lose';
+  }
+  // 半全場
+  if (/半全場|HT.*FT/i.test(market) && halfScore) {
+    const [ha, hb] = halfScore.map(Number);
+    const htOutcome = ha > hb ? 'A' : (ha < hb ? 'B' : 'D');
+    const ftOutcome = a > b ? 'A' : (a < b ? 'B' : 'D');
+    // selection 格式 "德國/德國" or "和/古拉索"
+    const parts = sel.split('/');
+    if (parts.length === 2) {
+      const map = s => {
+        if (isDrawRef(s)) return 'D';
+        if (isHomeRef(s)) return 'A';
+        if (isAwayRef(s)) return 'B';
+        return null;
+      };
+      const want = [map(parts[0]), map(parts[1])];
+      if (want[0] && want[1]) {
+        return (htOutcome === want[0] && ftOutcome === want[1]) ? 'win' : 'lose';
+      }
+    }
+  }
+
+  return 'unknown';
+}
+
+function computePnL(stake, odds, result) {
+  if (result === 'win') return stake * (odds - 1);
+  if (result === 'lose') return -stake;
+  if (result === 'void') return 0;
+  return null;
+}
+
+// ============================================================
+// FILE TO BASE64
+// ============================================================
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => {
+      const result = r.result;
+      resolve({ type: file.type, data: result.split(',')[1], name: file.name, preview: result });
+    };
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+// ============================================================
+// CORE COMPONENTS
+// ============================================================
+
+// Signature element: EV Bar
+// Visualizes (implied probability) vs (AI estimated probability range)
+function EvBar({ impliedProb, estimatedProb, verdict, compact = false }) {
+  if (!estimatedProb || typeof impliedProb !== 'number') return null;
+  const verdictColor = {
+    VALUE: 'var(--positive)',
+    FAIR: 'var(--fair)',
+    AVOID: 'var(--negative)'
+  }[verdict] || 'var(--text-tertiary)';
+  const h = compact ? 5 : 8;
+  return (
+    <div className="relative w-full" style={{ height: h, background: 'var(--bg-elevated)', borderRadius: h / 2 }}>
+      {/* AI estimated range */}
+      <div
+        className="absolute top-0 bottom-0"
+        style={{
+          left: `${estimatedProb.min}%`,
+          width: `${Math.max(estimatedProb.max - estimatedProb.min, 0.5)}%`,
+          background: verdictColor,
+          borderRadius: h / 2,
+          opacity: 0.95
+        }}
+      />
+      {/* Implied probability tick */}
+      <div
+        className="absolute"
+        style={{
+          left: `${impliedProb}%`,
+          top: -2,
+          bottom: -2,
+          width: 2,
+          background: 'var(--text-primary)',
+          marginLeft: -1
+        }}
+      />
+    </div>
+  );
+}
+
+function StrengthBar({ teamA, teamB, ratingA, ratingB }) {
+  const max = Math.max(ratingA, ratingB, 100);
+  const aPct = (ratingA / max) * 100;
+  const bPct = (ratingB / max) * 100;
+  return (
+    <div className="flex items-center gap-3 text-xs">
+      <span className="mono" style={{ color: 'var(--text-numeric)', minWidth: 24, textAlign: 'right' }}>{ratingA}</span>
+      <div className="flex-1 relative" style={{ height: 4, background: 'var(--bg-elevated)', borderRadius: 2 }}>
+        <div className="absolute left-1/2 top-0 bottom-0" style={{ width: 1, background: 'var(--border-focus)' }} />
+        <div className="absolute right-1/2 top-0 bottom-0" style={{ width: `${aPct / 2}%`, background: 'var(--brand)', borderRadius: '2px 0 0 2px' }} />
+        <div className="absolute left-1/2 top-0 bottom-0" style={{ width: `${bPct / 2}%`, background: 'var(--text-tertiary)', borderRadius: '0 2px 2px 0' }} />
+      </div>
+      <span className="mono" style={{ color: 'var(--text-numeric)', minWidth: 24 }}>{ratingB}</span>
+    </div>
+  );
+}
+
+function Card({ children, className = '', style = {}, elevated = false, onClick }) {
+  const base = {
+    background: elevated ? 'var(--bg-elevated)' : 'var(--bg-surface)',
+    border: '1px solid var(--border-default)',
+    borderRadius: 12,
+    padding: 20
+  };
+  return (
+    <div onClick={onClick} className={className + (onClick ? ' cursor-pointer no-tap-highlight' : '')} style={{ ...base, ...style }}>
+      {children}
+    </div>
+  );
+}
+
+function Button({ children, onClick, variant = 'primary', disabled, size = 'md', className = '', icon }) {
+  const sizes = {
+    sm: { padding: '6px 12px', fontSize: 12 },
+    md: { padding: '10px 16px', fontSize: 13 },
+    lg: { padding: '14px 20px', fontSize: 14 }
+  };
+  const variants = {
+    primary: { background: 'var(--text-primary)', color: 'var(--bg-base)', border: '1px solid var(--text-primary)' },
+    secondary: { background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border-focus)' },
+    ghost: { background: 'transparent', color: 'var(--text-secondary)', border: '1px solid transparent' },
+    success: { background: 'var(--positive)', color: '#04221a', border: '1px solid var(--positive)' },
+    danger: { background: 'transparent', color: 'var(--negative)', border: '1px solid rgba(251,113,133,0.3)' }
+  };
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`no-tap-highlight transition-opacity ${disabled ? 'opacity-40 cursor-not-allowed' : 'hover:opacity-85'} ${className}`}
+      style={{ ...sizes[size], ...variants[variant], borderRadius: 8, fontWeight: 500, fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6, cursor: disabled ? 'not-allowed' : 'pointer' }}
+    >
+      {icon && <span style={{ display: 'inline-flex' }}>{icon}</span>}
+      {children}
+    </button>
+  );
+}
+
+function Tag({ children, tone = 'neutral', size = 'sm' }) {
+  const tones = {
+    neutral: { bg: 'var(--bg-elevated)', fg: 'var(--text-secondary)' },
+    positive: { bg: 'var(--positive-soft)', fg: 'var(--positive)' },
+    fair: { bg: 'var(--fair-soft)', fg: 'var(--fair)' },
+    negative: { bg: 'var(--negative-soft)', fg: 'var(--negative)' },
+    info: { bg: 'var(--brand-soft)', fg: 'var(--brand)' }
+  };
+  const t = tones[tone];
+  const sz = size === 'sm' ? { padding: '2px 8px', fontSize: 11 } : { padding: '4px 10px', fontSize: 12 };
+  return (
+    <span style={{ ...sz, background: t.bg, color: t.fg, borderRadius: 9999, fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+      {children}
+    </span>
+  );
+}
+
+// ============================================================
+// TOP NAV
+// ============================================================
+function TopNav({ view, setView, bankroll, setBankroll, hasApiKey, onOpenSettings }) {
+  const tabs = [
+    { id: 'today', label: 'Today' },
+    { id: 'history', label: 'History' },
+    { id: 'stats', label: 'Stats' }
+  ];
+  return (
+    <div style={{ borderBottom: '1px solid var(--border-default)', position: 'sticky', top: 0, background: 'var(--bg-base)', zIndex: 50 }}>
+      <div className="max-w-7xl mx-auto px-6 flex items-center justify-between" style={{ height: 56 }}>
+        <div className="flex items-center gap-8">
+          <div className="display flex items-center gap-2" style={{ fontSize: 17 }}>
+            <span style={{ color: 'var(--brand)' }}>◆</span>
+            <span>EV</span>
+            <span style={{ color: 'var(--text-tertiary)', fontWeight: 400, fontSize: 13 }}>· WC 2026</span>
+          </div>
+          <div className="flex items-center gap-1">
+            {tabs.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setView(t.id)}
+                className="no-tap-highlight transition-colors"
+                style={{
+                  padding: '6px 12px', borderRadius: 6, fontSize: 13, fontWeight: 500, background: 'transparent', border: 'none', cursor: 'pointer',
+                  color: view === t.id ? 'var(--text-primary)' : 'var(--text-tertiary)'
+                }}
+              >{t.label}</button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 mono" style={{ background: 'var(--bg-surface)', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-default)', fontSize: 13 }}>
+            <span style={{ color: 'var(--text-tertiary)', fontSize: 11, fontFamily: 'Inter' }}>本金</span>
+            <span style={{ color: 'var(--text-tertiary)' }}>NT$</span>
+            <input
+              type="number" min="0" step="1000" value={bankroll}
+              onChange={e => setBankroll(Math.max(0, parseInt(e.target.value) || 0))}
+              className="mono bg-transparent outline-none text-right"
+              style={{ width: 72, color: 'var(--text-numeric)', fontWeight: 500 }}
+            />
+          </div>
+          <button onClick={onOpenSettings} className="no-tap-highlight" style={{
+            padding: 8, borderRadius: 8, background: hasApiKey ? 'var(--bg-surface)' : 'var(--fair-soft)',
+            color: hasApiKey ? 'var(--text-secondary)' : 'var(--fair)',
+            border: '1px solid ' + (hasApiKey ? 'var(--border-default)' : 'rgba(251,191,36,0.3)'), cursor: 'pointer'
+          }} title={hasApiKey ? '設定' : '請設定 API Key'}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function DateHero() {
+  const now = new Date();
+  const weekdayMap = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+  const monthMap = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ fontSize: 11, letterSpacing: '0.15em', color: 'var(--text-tertiary)', marginBottom: 6 }}>
+        {weekdayMap[now.getDay()]}
+      </div>
+      <div className="display" style={{ fontSize: 36 }}>
+        {monthMap[now.getMonth()]} {now.getDate()}, {now.getFullYear()}
+      </div>
+    </div>
+  );
+}
+
+function KpiCard({ label, value, sub, tone = 'neutral', onClick }) {
+  const valueColor = tone === 'positive' ? 'var(--positive)' : tone === 'negative' ? 'var(--negative)' : tone === 'fair' ? 'var(--fair)' : 'var(--text-numeric)';
+  return (
+    <Card onClick={onClick} style={{ padding: 18 }}>
+      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, fontWeight: 500 }}>{label}</div>
+      <div className="mono" style={{ fontSize: 28, fontWeight: 600, color: valueColor, lineHeight: 1.1 }}>{value}</div>
+      <div className="mono" style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 6 }}>{sub}</div>
+    </Card>
+  );
+}
+
+function DashboardView({ state, dispatch, openAnalysisNew, openAnalysisView, openResultEntry }) {
+  const todayMatches = state.matches.filter(m => m.dateGroup === todayISO());
+  const todayBets = state.bets.filter(b => {
+    const m = state.matches.find(x => x.id === b.matchId);
+    return m && m.dateGroup === todayISO();
+  });
+  const pending = state.matches.filter(m => !m.fullScore && !m.isVoid && state.bets.some(b => b.matchId === m.id));
+  const todayExposure = todayBets.reduce((s, b) => s + b.stakeNT, 0);
+  const todayExpectedReturn = todayBets.reduce((s, b) => {
+    if (b.result === 'win') return s + computePnL(b.stakeNT, b.odds, 'win');
+    if (b.result === 'lose') return s - b.stakeNT;
+    if (b.result === 'void') return s;
+    // pending: use AI estimated probability midpoint
+    const mid = b.aiEstimatedProb ? (b.aiEstimatedProb.min + b.aiEstimatedProb.max) / 200 : (1 / b.odds);
+    return s + (mid * b.odds * b.stakeNT - b.stakeNT);
+  }, 0);
+
+  return (
+    <div className="fade-in">
+      <DateHero/>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3" style={{ marginBottom: 24 }}>
+        <KpiCard
+          label="今日總曝險"
+          value={formatNT(todayExposure)}
+          sub={`${state.bankroll > 0 ? ((todayExposure / state.bankroll) * 100).toFixed(1) : '0.0'}% of bankroll · 上限 8%`}
+          tone={todayExposure / state.bankroll > 0.08 ? 'negative' : todayExposure / state.bankroll > 0.05 ? 'fair' : 'neutral'}
+        />
+        <KpiCard
+          label="預期淨利"
+          value={(todayExpectedReturn >= 0 ? '+' : '') + formatNT(todayExpectedReturn)}
+          sub={state.bankroll > 0 ? formatPct((todayExpectedReturn / state.bankroll) * 100, 2) + ' ROI' : '—'}
+          tone={todayExpectedReturn > 0 ? 'positive' : todayExpectedReturn < 0 ? 'negative' : 'neutral'}
+        />
+        <KpiCard
+          label="待錄結果"
+          value={pending.length.toString()}
+          sub={pending.length > 0 ? '點下方場次輸入比分' : '都已結算'}
+          tone={pending.length > 0 ? 'fair' : 'neutral'}
+        />
+      </div>
+
+      <button
+        onClick={openAnalysisNew}
+        className="no-tap-highlight w-full transition-all hover:bg-opacity-100"
+        style={{ padding: 18, background: 'var(--bg-surface)', border: '1px dashed var(--border-focus)', borderRadius: 12, color: 'var(--text-primary)', fontSize: 14, fontWeight: 500, cursor: 'pointer', marginBottom: 32 }}
+      >
+        <span style={{ marginRight: 8, fontSize: 16, color: 'var(--brand)' }}>+</span>
+        新增分析（上傳賠率截圖）
+      </button>
+
+      {pending.length > 0 && (
+        <div style={{ marginBottom: 32 }}>
+          <SectionLabel>待錄入結果 · {pending.length}</SectionLabel>
+          <div className="space-y-2">
+            {pending.map(m => (
+              <PendingMatchRow key={m.id} match={m} bets={state.bets.filter(b => b.matchId === m.id)} onClick={() => openResultEntry(m.id)} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      <SectionLabel>今日分析 · {todayMatches.length}</SectionLabel>
+      {todayMatches.length === 0 ? (
+        <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-tertiary)', background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 12 }}>
+          <div style={{ fontSize: 14, marginBottom: 4 }}>今天還沒分析過比賽</div>
+          <div style={{ fontSize: 12 }}>點上方「新增分析」開始</div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {todayMatches.map(m => (
+            <AnalysisCard key={m.id} match={m} bets={state.bets.filter(b => b.matchId === m.id)} onView={() => openAnalysisView(m.id)} onResult={() => openResultEntry(m.id)} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SectionLabel({ children }) {
+  return (
+    <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12, fontWeight: 500 }}>{children}</div>
+  );
+}
+
+function PendingMatchRow({ match, bets, onClick }) {
+  return (
+    <Card onClick={onClick} style={{ padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className="flex items-center gap-3">
+        <div className="pulse-dot" style={{ width: 8, height: 8, borderRadius: 4, background: 'var(--fair)' }}/>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 500 }}>{match.teamA} <span style={{ color: 'var(--text-tertiary)', margin: '0 6px' }}>—</span> {match.teamB}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }} className="mono">{bets.length} bet{bets.length>1?'s':''} · {formatNT(bets.reduce((s,b)=>s+b.stakeNT,0))} 待結算</div>
+        </div>
+      </div>
+      <Button variant="secondary" size="sm">輸入比分 →</Button>
+    </Card>
+  );
+}
+
+function AnalysisCard({ match, bets, onView, onResult }) {
+  const settled = bets.filter(b => b.result && b.result !== 'void');
+  const pnl = bets.reduce((s, b) => s + (b.pnl || 0), 0);
+  const exposure = bets.reduce((s, b) => s + b.stakeNT, 0);
+  const hasResult = !!match.fullScore;
+
+  return (
+    <Card>
+      <div className="flex items-start justify-between gap-3" style={{ marginBottom: 12 }}>
+        <div className="flex-1">
+          <div className="flex items-center gap-3" style={{ marginBottom: 4 }}>
+            <div style={{ fontSize: 15, fontWeight: 500 }}>
+              {match.teamA} <span style={{ color: 'var(--text-tertiary)', margin: '0 6px' }}>—</span> {match.teamB}
+            </div>
+            {hasResult && (
+              <span className="mono" style={{ fontSize: 12, color: 'var(--text-secondary)', background: 'var(--bg-elevated)', padding: '2px 8px', borderRadius: 4 }}>
+                {match.fullScore[0]} : {match.fullScore[1]}
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }} className="mono">
+            {match.stage} · {match.datetime} · 強度 {match.teamRatings?.teamA}–{match.teamRatings?.teamB}
+          </div>
+        </div>
+        {hasResult ? (
+          <Tag tone={pnl > 0 ? 'positive' : pnl < 0 ? 'negative' : 'neutral'}>
+            {pnl >= 0 ? '+' : ''}{formatNT(pnl)}
+          </Tag>
+        ) : bets.length > 0 ? (
+          <Tag tone="fair">待開賽</Tag>
+        ) : (
+          <Tag tone="neutral">未下注</Tag>
+        )}
+      </div>
+
+      {bets.length > 0 && (
+        <div className="space-y-1" style={{ marginBottom: 12 }}>
+          {bets.map(b => (
+            <BetMiniRow key={b.id} bet={b}/>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="sm" onClick={onView}>查看分析 →</Button>
+        {!hasResult && bets.length > 0 && (
+          <Button variant="secondary" size="sm" onClick={onResult}>輸入比分</Button>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function BetMiniRow({ bet }) {
+  const resultMap = {
+    win: { label: '勝', color: 'var(--positive)' },
+    lose: { label: '負', color: 'var(--negative)' },
+    void: { label: '退', color: 'var(--text-tertiary)' }
+  };
+  const r = bet.result ? resultMap[bet.result] : null;
+  return (
+    <div className="flex items-center justify-between" style={{ padding: '8px 10px', background: 'var(--bg-elevated)', borderRadius: 6, fontSize: 12 }}>
+      <div className="flex-1 min-w-0">
+        <div style={{ color: 'var(--text-primary)', marginBottom: 4, fontSize: 12 }}>
+          {bet.market} · {bet.selection}
+        </div>
+        <div style={{ width: 100 }}>
+          <EvBar impliedProb={bet.impliedProb} estimatedProb={bet.aiEstimatedProb} verdict={bet.aiVerdict} compact/>
+        </div>
+      </div>
+      <div className="mono flex items-center gap-3" style={{ fontSize: 11 }}>
+        <span style={{ color: 'var(--text-tertiary)' }}>@{bet.odds.toFixed(2)}</span>
+        <span style={{ color: 'var(--text-secondary)' }}>{formatNT(bet.stakeNT)}</span>
+        {r && <span style={{ color: r.color, fontWeight: 500, minWidth: 32, textAlign: 'right' }}>{r.label} {bet.pnl >= 0 ? '+' : ''}{formatNT(Math.abs(bet.pnl) > 0.5 ? bet.pnl : 0)}</span>}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// HISTORY VIEW
+// ============================================================
+function HistoryView({ state, openAnalysisView, openResultEntry }) {
+  const grouped = useMemo(() => {
+    const map = {};
+    state.matches.forEach(m => {
+      const day = m.dateGroup;
+      if (!map[day]) map[day] = [];
+      map[day].push(m);
+    });
+    return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [state.matches]);
+
+  if (state.matches.length === 0) {
+    return (
+      <div className="fade-in" style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+        <div className="display" style={{ fontSize: 24, color: 'var(--text-secondary)', marginBottom: 8 }}>還沒有紀錄</div>
+        <div style={{ fontSize: 13 }}>切回 Today 按「新增分析」開始</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fade-in">
+      <div style={{ marginBottom: 20 }}>
+        <div className="display" style={{ fontSize: 28, marginBottom: 4 }}>History</div>
+        <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }} className="mono">{state.matches.length} 場分析 · {state.bets.length} 筆 bets</div>
+      </div>
+      {grouped.map(([day, matches]) => {
+        const dayBets = state.bets.filter(b => matches.some(m => m.id === b.matchId));
+        const dayPnL = dayBets.reduce((s, b) => s + (b.pnl || 0), 0);
+        return (
+          <div key={day} style={{ marginBottom: 28 }}>
+            <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
+              <SectionLabel>{dateLabel(day)}</SectionLabel>
+              <span className="mono" style={{ fontSize: 12, color: dayPnL > 0 ? 'var(--positive)' : dayPnL < 0 ? 'var(--negative)' : 'var(--text-tertiary)' }}>
+                {dayPnL >= 0 ? '+' : ''}{formatNT(dayPnL)}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {matches.map(m => (
+                <AnalysisCard key={m.id} match={m} bets={state.bets.filter(b => b.matchId === m.id)} onView={() => openAnalysisView(m.id)} onResult={() => openResultEntry(m.id)} />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ============================================================
+// STATS VIEW with calibration
+// ============================================================
+function StatsView({ state }) {
+  const settledBets = state.bets.filter(b => b.result && b.result !== 'void');
+  const totalPnL = state.bets.reduce((s, b) => s + (b.pnl || 0), 0);
+  const totalStaked = settledBets.reduce((s, b) => s + b.stakeNT, 0);
+  const roi = totalStaked > 0 ? (totalPnL / totalStaked) * 100 : 0;
+  const winRate = settledBets.length > 0 ? (settledBets.filter(b => b.result === 'win').length / settledBets.length) * 100 : 0;
+  const pending = state.bets.filter(b => !b.result).length;
+  const sampleN = settledBets.length;
+
+  // P/L curve data (cumulative by date)
+  const pnlSeries = useMemo(() => {
+    const sorted = [...settledBets].sort((a, b) => (a.resolvedAt || a.createdAt).localeCompare(b.resolvedAt || b.createdAt));
+    let cum = 0;
+    return sorted.map(b => {
+      cum += b.pnl || 0;
+      return { date: (b.resolvedAt || b.createdAt).slice(0, 10), pnl: cum, betId: b.id };
+    });
+  }, [settledBets]);
+
+  // Calibration buckets: group bets by AI estimated probability midpoint (10% buckets)
+  const calibration = useMemo(() => {
+    const buckets = {};
+    settledBets.forEach(b => {
+      if (!b.aiEstimatedProb) return;
+      const mid = (b.aiEstimatedProb.min + b.aiEstimatedProb.max) / 2;
+      const bucket = Math.floor(mid / 10) * 10;
+      if (!buckets[bucket]) buckets[bucket] = { estimated: 0, hits: 0, count: 0 };
+      buckets[bucket].estimated += mid;
+      buckets[bucket].count += 1;
+      if (b.result === 'win') buckets[bucket].hits += 1;
+    });
+    return Object.entries(buckets).map(([k, v]) => ({
+      bucket: parseInt(k),
+      avgEstimated: v.estimated / v.count,
+      actualRate: (v.hits / v.count) * 100,
+      n: v.count
+    })).sort((a, b) => a.bucket - b.bucket);
+  }, [settledBets]);
+
+  return (
+    <div className="fade-in">
+      <div style={{ marginBottom: 20 }}>
+        <div className="display" style={{ fontSize: 28, marginBottom: 4 }}>Stats</div>
+        <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }} className="mono">累計表現 · {sampleN} 筆已結算 · {pending} pending</div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3" style={{ marginBottom: 24 }}>
+        <KpiCard label="總損益" value={(totalPnL >= 0 ? '+' : '') + formatNT(totalPnL)} sub={`${settledBets.length} 筆已結算`} tone={totalPnL > 0 ? 'positive' : totalPnL < 0 ? 'negative' : 'neutral'} />
+        <KpiCard label="ROI" value={formatPct(roi)} sub={`vs −13% (運彩 vig)`} tone={roi > 0 ? 'positive' : 'negative'} />
+        <KpiCard label="命中率" value={winRate.toFixed(0) + '%'} sub={`${settledBets.filter(b => b.result === 'win').length} / ${settledBets.length}`} />
+        <KpiCard label="總注數" value={state.bets.length.toString()} sub={`${pending} pending`} />
+      </div>
+
+      {sampleN < 30 && (
+        <Card style={{ background: 'var(--fair-soft)', border: '1px solid rgba(251,191,36,0.3)', marginBottom: 24, padding: 14 }}>
+          <div style={{ fontSize: 13, color: 'var(--fair)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>⚠</span>
+            <span>樣本 {sampleN} 筆 · 建議累積 30+ 才有統計意義。目前的 ROI 與命中率仍受運氣主導。</span>
+          </div>
+        </Card>
+      )}
+
+      <Card style={{ marginBottom: 24 }}>
+        <SectionLabel>P/L 累計曲線</SectionLabel>
+        {pnlSeries.length < 2 ? (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 13 }}>累積 2 筆以上結算後顯示</div>
+        ) : (
+          <PnlChart data={pnlSeries}/>
+        )}
+      </Card>
+
+      <Card>
+        <SectionLabel>Calibration · AI 估計勝率 vs 實際命中率</SectionLabel>
+        {calibration.length < 3 ? (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 13 }}>需要至少 3 個機率區間的資料</div>
+        ) : (
+          <CalibrationChart data={calibration}/>
+        )}
+        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 12, lineHeight: 1.6 }}>
+          完美校準時所有點落在 y = x 對角線。點在線上方 = AI 低估真實機率；線下方 = AI 高估。系統性偏離應該回饋到系統提示詞的真實機率指引調整。
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function PnlChart({ data }) {
+  const w = 700, h = 200, pad = { l: 50, r: 20, t: 16, b: 28 };
+  const pnls = data.map(d => d.pnl);
+  const minY = Math.min(0, ...pnls);
+  const maxY = Math.max(0, ...pnls);
+  const yRange = maxY - minY || 1;
+  const x = i => pad.l + (i / Math.max(data.length - 1, 1)) * (w - pad.l - pad.r);
+  const y = v => pad.t + (1 - (v - minY) / yRange) * (h - pad.t - pad.b);
+  const zeroY = y(0);
+  const pathD = data.map((d, i) => (i === 0 ? 'M' : 'L') + x(i) + ',' + y(d.pnl)).join(' ');
+  const areaD = pathD + ` L ${x(data.length - 1)},${zeroY} L ${x(0)},${zeroY} Z`;
+  return (
+    <svg width="100%" viewBox={`0 0 ${w} ${h}`} style={{ display: 'block' }}>
+      {/* Y axis labels */}
+      {[minY, 0, maxY].filter((v, i, a) => a.indexOf(v) === i).map(v => (
+        <g key={v}>
+          <line x1={pad.l} x2={w - pad.r} y1={y(v)} y2={y(v)} stroke="var(--border-default)" strokeDasharray={v === 0 ? '' : '2 4'}/>
+          <text x={pad.l - 8} y={y(v) + 4} textAnchor="end" fill="var(--text-tertiary)" fontSize="10" fontFamily="JetBrains Mono">
+            {(v >= 0 ? '+' : '') + Math.round(v).toLocaleString()}
+          </text>
+        </g>
+      ))}
+      <path d={areaD} fill={pnls[pnls.length - 1] >= 0 ? 'rgba(52,211,153,0.08)' : 'rgba(251,113,133,0.08)'}/>
+      <path d={pathD} fill="none" stroke={pnls[pnls.length - 1] >= 0 ? 'var(--positive)' : 'var(--negative)'} strokeWidth="2"/>
+      {data.map((d, i) => (
+        <circle key={i} cx={x(i)} cy={y(d.pnl)} r="3" fill={pnls[pnls.length - 1] >= 0 ? 'var(--positive)' : 'var(--negative)'}/>
+      ))}
+      {/* X axis labels (first, middle, last) */}
+      {[0, Math.floor(data.length / 2), data.length - 1].filter((v, i, a) => a.indexOf(v) === i).map(i => (
+        <text key={i} x={x(i)} y={h - 8} textAnchor="middle" fill="var(--text-tertiary)" fontSize="10" fontFamily="JetBrains Mono">{data[i].date.slice(5)}</text>
+      ))}
+    </svg>
+  );
+}
+
+function CalibrationChart({ data }) {
+  const w = 700, h = 320, pad = { l: 50, r: 20, t: 20, b: 40 };
+  const x = v => pad.l + (v / 100) * (w - pad.l - pad.r);
+  const y = v => pad.t + (1 - v / 100) * (h - pad.t - pad.b);
+  return (
+    <svg width="100%" viewBox={`0 0 ${w} ${h}`} style={{ display: 'block' }}>
+      {/* Grid */}
+      {[0, 25, 50, 75, 100].map(v => (
+        <g key={v}>
+          <line x1={x(v)} x2={x(v)} y1={pad.t} y2={h - pad.b} stroke="var(--border-default)" strokeDasharray="2 4"/>
+          <line x1={pad.l} x2={w - pad.r} y1={y(v)} y2={y(v)} stroke="var(--border-default)" strokeDasharray="2 4"/>
+          <text x={x(v)} y={h - pad.b + 16} textAnchor="middle" fill="var(--text-tertiary)" fontSize="10" fontFamily="JetBrains Mono">{v}</text>
+          <text x={pad.l - 8} y={y(v) + 4} textAnchor="end" fill="var(--text-tertiary)" fontSize="10" fontFamily="JetBrains Mono">{v}</text>
+        </g>
+      ))}
+      {/* y=x reference line */}
+      <line x1={x(0)} y1={y(0)} x2={x(100)} y2={y(100)} stroke="var(--brand)" strokeWidth="1.5" strokeDasharray="4 4" opacity="0.6"/>
+      {/* Data points */}
+      {data.map((d, i) => {
+        const dist = Math.abs(d.actualRate - d.avgEstimated);
+        const color = dist < 5 ? 'var(--positive)' : dist < 15 ? 'var(--fair)' : 'var(--negative)';
+        return (
+          <g key={i}>
+            <circle cx={x(d.avgEstimated)} cy={y(d.actualRate)} r={Math.min(4 + d.n, 12)} fill={color} opacity="0.7"/>
+            <text x={x(d.avgEstimated)} y={y(d.actualRate) - 12} textAnchor="middle" fill="var(--text-secondary)" fontSize="9" fontFamily="JetBrains Mono">n={d.n}</text>
+          </g>
+        );
+      })}
+      {/* Axis labels */}
+      <text x={w / 2} y={h - 4} textAnchor="middle" fill="var(--text-tertiary)" fontSize="11">AI 估計勝率 (%)</text>
+      <text x={12} y={h / 2} textAnchor="middle" fill="var(--text-tertiary)" fontSize="11" transform={`rotate(-90 12 ${h / 2})`}>實際命中率 (%)</text>
+    </svg>
+  );
+}
+
+// ============================================================
+// MODAL WRAPPER
+// ============================================================
+function Modal({ onClose, children, maxWidth = 1100 }) {
+  useEffect(() => {
+    const handler = e => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', handler); document.body.style.overflow = ''; };
+  }, [onClose]);
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100, overflowY: 'auto', padding: '24px 0' }}>
+      <div onClick={e => e.stopPropagation()} className="fade-in mx-auto" style={{ background: 'var(--bg-base)', borderRadius: 16, border: '1px solid var(--border-default)', maxWidth, margin: '0 auto', minHeight: 'min-content' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// SETTINGS MODAL
+// ============================================================
+function SettingsModal({ state, dispatch, onClose }) {
+  const [tempKey, setTempKey] = useState(state.apiKey || '');
+  const [showKey, setShowKey] = useState(false);
+  const [saved, setSaved] = useState('');
+  const importRef = useRef(null);
+
+  const handleSaveKey = () => {
+    dispatch({ type: 'SET_API_KEY', payload: tempKey.trim() });
+    setSaved('key');
+    setTimeout(() => setSaved(''), 1200);
+  };
+
+  const handleExport = () => {
+    const exportData = { ...state, exportedAt: new Date().toISOString() };
+    delete exportData.apiKey;
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `wc-ev-backup-${todayISO()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    dispatch({ type: 'SET_LAST_EXPORT', payload: new Date().toISOString() });
+    setSaved('export');
+    setTimeout(() => setSaved(''), 1200);
+  };
+
+  const handleImport = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!data.matches || !data.bets) throw new Error('格式錯誤');
+        if (!confirm(`匯入會覆蓋目前資料：${state.matches.length} → ${data.matches.length} 場，${state.bets.length} → ${data.bets.length} 筆。確定？`)) return;
+        dispatch({ type: 'IMPORT', payload: { matches: data.matches, bets: data.bets, bankroll: data.bankroll || state.bankroll } });
+        setSaved('import');
+        setTimeout(() => setSaved(''), 1200);
+      } catch (err) {
+        alert('匯入失敗：' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleClearAll = () => {
+    if (!confirm(`確定清除全部 ${state.matches.length} 場、${state.bets.length} 筆紀錄？此動作無法復原。建議先匯出備份。`)) return;
+    if (!confirm('真的確定？最後一次確認。')) return;
+    dispatch({ type: 'CLEAR_ALL' });
+    setSaved('clear');
+    setTimeout(() => setSaved(''), 1200);
+  };
+
+  const daysSinceExport = state.lastExport ? Math.floor((Date.now() - new Date(state.lastExport).getTime()) / 86400000) : null;
+
+  return (
+    <Modal onClose={onClose} maxWidth={640}>
+      <div style={{ padding: 28 }}>
+        <div className="flex items-center justify-between" style={{ marginBottom: 24 }}>
+          <div className="display" style={{ fontSize: 22 }}>Settings</div>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: 18 }}>✕</button>
+        </div>
+
+        {/* API Key */}
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6 }}>Anthropic API Key</div>
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 12, lineHeight: 1.6 }}>
+            前往 <a href="https://console.anthropic.com" target="_blank" rel="noopener" style={{ color: 'var(--brand)' }}>console.anthropic.com</a> · Settings → API Keys → Create Key。儲存在你瀏覽器 localStorage，不會外洩。每場分析約消耗 NT$1–3。
+          </div>
+          <div className="relative">
+            <input
+              type={showKey ? 'text' : 'password'}
+              value={tempKey}
+              onChange={e => setTempKey(e.target.value)}
+              placeholder="sk-ant-api03-..."
+              className="mono w-full"
+              style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '10px 70px 10px 12px', fontSize: 12, color: 'var(--text-primary)', outline: 'none' }}
+            />
+            <button onClick={() => setShowKey(!showKey)} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: 'var(--text-tertiary)', fontSize: 11, cursor: 'pointer', padding: '4px 8px' }}>
+              {showKey ? '隱藏' : '顯示'}
+            </button>
+          </div>
+          <div className="flex gap-2" style={{ marginTop: 12 }}>
+            <Button onClick={handleSaveKey} disabled={!tempKey.trim() || tempKey === state.apiKey}>{saved === 'key' ? '✓ 已儲存' : '儲存 API Key'}</Button>
+            {state.apiKey && <Button variant="danger" size="md" onClick={() => { dispatch({ type: 'SET_API_KEY', payload: '' }); setTempKey(''); }}>清除</Button>}
+          </div>
+        </div>
+
+        {/* Data Management */}
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6 }}>資料管理</div>
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 12, lineHeight: 1.6 }}>
+            目前 {state.matches.length} 場分析、{state.bets.length} 筆 bets。
+            {daysSinceExport === null ? ' 從未匯出備份。' : daysSinceExport === 0 ? ' 今天已匯出。' : ` ${daysSinceExport} 天沒匯出備份。`}
+            {daysSinceExport !== null && daysSinceExport > 7 && <span style={{ color: 'var(--fair)' }}> ⚠ 建議匯出</span>}
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="secondary" onClick={handleExport}>{saved === 'export' ? '✓ 已下載' : '匯出 JSON 備份'}</Button>
+            <Button variant="secondary" onClick={() => importRef.current?.click()}>{saved === 'import' ? '✓ 已匯入' : '從 JSON 匯入'}</Button>
+            <input ref={importRef} type="file" accept="application/json" style={{ display: 'none' }} onChange={handleImport}/>
+            <Button variant="danger" onClick={handleClearAll}>{saved === 'clear' ? '✓ 已清除' : '清除全部資料'}</Button>
+          </div>
+        </div>
+
+        {/* Disclaimer */}
+        <div style={{ borderTop: '1px solid var(--border-default)', paddingTop: 16, fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.7 }}>
+          本工具僅供分析參考。運彩屬負期望值遊戲，請設定上限、量力而為。<br/>
+          若出現賭博成癮跡象，請撥打 0800-636-363。
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ============================================================
+// ANALYSIS DETAIL MODAL (new analysis OR view existing)
+// ============================================================
+function AnalysisDetailModal({ state, dispatch, mode, matchId, onClose }) {
+  // mode: 'new' (upload + analyze) or 'view' (already analyzed)
+  const existingMatch = matchId ? state.matches.find(m => m.id === matchId) : null;
+  const existingBets = matchId ? state.bets.filter(b => b.matchId === matchId) : [];
+
+  const [images, setImages] = useState([]);
+  const [contextText, setContextText] = useState('');
+  const [analyzing, setAnalyzing] = useState(false);
+  const [error, setError] = useState(null);
+  const [analysisResult, setAnalysisResult] = useState(existingMatch?.aiResult || null);
+  const [selections, setSelections] = useState({}); // index -> { checked, stakePct }
+  const fileInputRef = useRef(null);
+
+  // For 'view' mode: pre-fill selections from existing bets
+  useEffect(() => {
+    if (existingMatch?.aiResult && existingBets.length > 0) {
+      const sels = {};
+      existingMatch.aiResult.analysis?.forEach((row, i) => {
+        const matched = existingBets.find(b => b.market === row.market && b.selection === row.selection);
+        if (matched) {
+          sels[i] = { checked: true, stakePct: matched.stakePct, betId: matched.id, locked: true };
+        }
+      });
+      setSelections(sels);
+    }
+  }, []);
+
+  const handleFiles = async (files) => {
+    const imgs = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (imgs.length === 0) return;
+    const converted = await Promise.all(imgs.map(fileToBase64));
+    setImages(prev => [...prev, ...converted]);
+  };
+
+  const handleAnalyze = async () => {
+    if (images.length === 0) return;
+    if (!state.apiKey) { setError('請先在 Settings 設定 API Key'); return; }
+    setAnalyzing(true); setError(null);
+    try {
+      const content = images.map(img => ({ type: 'image', source: { type: 'base64', media_type: img.type, data: img.data } }));
+      content.push({ type: 'text', text: `請分析以上台灣運彩賠率截圖（${images.length} 張）。${contextText ? '\n\n額外情報：' + contextText : ''}\n\n依系統指示回傳純 JSON。` });
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': state.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+        body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 4096, system: SYSTEM_PROMPT, messages: [{ role: 'user', content }] })
+      });
+      if (!response.ok) {
+        const t = await response.text();
+        let msg = `API ${response.status}`;
+        try { const j = JSON.parse(t); if (j.error?.message) msg += ': ' + j.error.message; } catch (_) {}
+        if (response.status === 401) msg = 'API Key 無效，請至 Settings 重新設定';
+        if (response.status === 429) msg = 'API 額度用完或限流，請至 console.anthropic.com 查看';
+        throw new Error(msg);
+      }
+      const data = await response.json();
+      const text = data.content.filter(c => c.type === 'text').map(c => c.text).join('\n');
+      let cleaned = text.replace(/```json|```/g, '').trim();
+      const fi = cleaned.indexOf('{'), li = cleaned.lastIndexOf('}');
+      if (fi >= 0 && li > fi) cleaned = cleaned.substring(fi, li + 1);
+      const parsed = JSON.parse(cleaned);
+      if (parsed.error) { setError(parsed.error); return; }
+      setAnalysisResult(parsed);
+      // Pre-fill VALUE recommendations as checked
+      const newSels = {};
+      parsed.analysis?.forEach((row, i) => {
+        if (row.verdict === 'VALUE') {
+          const rec = parsed.recommendations?.find(r => r.market === row.market && r.selection === row.selection);
+          newSels[i] = { checked: true, stakePct: rec?.stakePct || Math.min(Math.round(row.edge / 2), 3) };
+        }
+      });
+      setSelections(newSels);
+    } catch (e) {
+      let msg = e.message;
+      if (msg.includes('Failed to fetch')) msg = '網路錯誤或 CORS 被擋，請確認連線';
+      setError(msg);
+    } finally { setAnalyzing(false); }
+  };
+
+  const handleToggle = (i, defaultStakePct) => {
+    setSelections(prev => {
+      const next = { ...prev };
+      if (next[i]?.checked) {
+        delete next[i];
+      } else {
+        next[i] = { checked: true, stakePct: defaultStakePct };
+      }
+      return next;
+    });
+  };
+
+  const handleStakeChange = (i, newStakePct) => {
+    setSelections(prev => ({ ...prev, [i]: { ...prev[i], stakePct: Math.max(0, Math.min(5, newStakePct)) } }));
+  };
+
+  const selectedRows = Object.entries(selections).filter(([_, v]) => v.checked).map(([k, v]) => ({ row: analysisResult?.analysis[parseInt(k)], stakePct: v.stakePct, idx: parseInt(k), locked: v.locked, betId: v.betId }));
+  const totalExposurePct = selectedRows.reduce((s, r) => s + (r.stakePct || 0), 0);
+  const totalExposureNT = (totalExposurePct / 100) * state.bankroll;
+  const overLimit = totalExposurePct > 8;
+  const hasUnlockedSelections = selectedRows.some(r => !r.locked);
+
+  const handleSave = () => {
+    if (!analysisResult || overLimit || selectedRows.length === 0) return;
+    // For new analyses: create match + bets
+    // For view mode: only allow adding new bets (existing bets are locked)
+    let matchToUse = existingMatch;
+    if (!matchToUse) {
+      matchToUse = {
+        id: uid(),
+        teamA: analysisResult.match.teamA,
+        teamB: analysisResult.match.teamB,
+        datetime: analysisResult.match.datetime,
+        stage: analysisResult.match.stage,
+        venue: analysisResult.match.venue,
+        teamRatings: analysisResult.teamRatings,
+        aiSummary: analysisResult.summary,
+        aiResult: analysisResult,
+        dateGroup: todayISO(),
+        createdAt: new Date().toISOString(),
+        fullScore: null,
+        halfScore: null,
+        isVoid: false
+      };
+      dispatch({ type: 'ADD_MATCH', payload: matchToUse });
+    }
+
+    const newBets = selectedRows
+      .filter(r => !r.locked) // skip already-saved bets
+      .map(r => {
+        const stakeNT = (r.stakePct / 100) * state.bankroll;
+        return {
+          id: uid(),
+          matchId: matchToUse.id,
+          market: r.row.market,
+          selection: r.row.selection,
+          odds: r.row.odds,
+          impliedProb: r.row.impliedProb,
+          stakePct: r.stakePct,
+          stakeNT,
+          aiEstimatedProb: r.row.estimatedProb,
+          aiVerdict: r.row.verdict,
+          aiEdge: r.row.edge,
+          result: null,
+          pnl: null,
+          createdAt: new Date().toISOString(),
+          resolvedAt: null
+        };
+      });
+    if (newBets.length > 0) {
+      dispatch({ type: 'ADD_BETS', payload: newBets });
+    }
+    onClose();
+  };
+
+  // Render
+  return (
+    <Modal onClose={onClose}>
+      <div style={{ padding: '20px 28px', borderBottom: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'var(--bg-base)', zIndex: 10, borderRadius: '16px 16px 0 0' }}>
+        <div style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>
+          {mode === 'new' ? '新增分析' : '查看分析'}
+          {analysisResult && <span style={{ color: 'var(--text-primary)', marginLeft: 12 }}>{analysisResult.match.teamA} <span style={{ color: 'var(--text-tertiary)' }}>vs</span> {analysisResult.match.teamB}</span>}
+        </div>
+        <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: 18 }}>✕</button>
+      </div>
+
+      <div style={{ padding: 28 }}>
+        {!analysisResult ? (
+          <>
+            {/* Upload area */}
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
+              style={{ border: '1.5px dashed var(--border-focus)', borderRadius: 12, padding: 40, textAlign: 'center', cursor: 'pointer', marginBottom: 16, background: 'var(--bg-surface)' }}
+            >
+              <div style={{ fontSize: 14, marginBottom: 4 }}>點擊或拖曳賠率截圖</div>
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>支援多張同一場的不同玩法</div>
+              <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => handleFiles(e.target.files)}/>
+            </div>
+
+            {images.length > 0 && (
+              <div className="grid grid-cols-5 gap-2" style={{ marginBottom: 16 }}>
+                {images.map((img, i) => (
+                  <div key={i} className="relative">
+                    <img src={img.preview} style={{ width: '100%', height: 80, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border-default)' }}/>
+                    <button onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))} style={{ position: 'absolute', top: 4, right: 4, background: 'var(--bg-base)', color: 'var(--negative)', border: '1px solid var(--border-default)', borderRadius: 4, width: 20, height: 20, cursor: 'pointer', fontSize: 11 }}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>額外情報（選填）</div>
+              <textarea
+                value={contextText}
+                onChange={e => setContextText(e.target.value)}
+                placeholder="傷停 / 天氣 / 輪換等..."
+                style={{ width: '100%', background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 10, fontSize: 12, color: 'var(--text-primary)', outline: 'none', resize: 'vertical', minHeight: 60, fontFamily: 'inherit' }}
+              />
+            </div>
+
+            {error && (
+              <div style={{ background: 'var(--negative-soft)', border: '1px solid rgba(251,113,133,0.3)', borderRadius: 8, padding: 12, fontSize: 12, color: 'var(--negative)', marginBottom: 16 }}>{error}</div>
+            )}
+
+            <Button
+              variant="primary" size="lg" onClick={handleAnalyze}
+              disabled={images.length === 0 || analyzing || !state.apiKey}
+              className="w-full"
+            >
+              {analyzing ? <><svg className="spin" width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3"/></svg> 分析中...（15-30 秒）</> : !state.apiKey ? '請先設定 API Key' : '啟動 EV 分析'}
+            </Button>
+          </>
+        ) : (
+          <AnalysisDisplay
+            result={analysisResult}
+            selections={selections}
+            onToggle={handleToggle}
+            onStakeChange={handleStakeChange}
+            bankroll={state.bankroll}
+            totalExposurePct={totalExposurePct}
+            totalExposureNT={totalExposureNT}
+            overLimit={overLimit}
+            selectedRows={selectedRows}
+            existingBets={existingBets}
+            hasNewSelections={hasUnlockedSelections}
+            mode={mode}
+            onSave={handleSave}
+          />
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+function AnalysisDisplay({ result, selections, onToggle, onStakeChange, bankroll, totalExposurePct, totalExposureNT, overLimit, selectedRows, existingBets, hasNewSelections, mode, onSave }) {
+  return (
+    <>
+      {/* Match header */}
+      <Card style={{ marginBottom: 16 }}>
+        <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
+          <div className="flex-1">
+            <div className="display" style={{ fontSize: 24 }}>{result.match.teamA}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }} className="mono">strength {result.teamRatings.teamA}</div>
+          </div>
+          <div className="text-center" style={{ padding: '0 24px' }}>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>{result.match.stage?.toUpperCase()}</div>
+            <div className="mono" style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>{result.match.datetime}</div>
+            {result.match.venue && <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 2 }}>{result.match.venue}</div>}
+          </div>
+          <div className="flex-1 text-right">
+            <div className="display" style={{ fontSize: 24 }}>{result.match.teamB}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }} className="mono">strength {result.teamRatings.teamB}</div>
+          </div>
+        </div>
+        <StrengthBar teamA={result.match.teamA} teamB={result.match.teamB} ratingA={result.teamRatings.teamA} ratingB={result.teamRatings.teamB}/>
+        <div style={{ marginTop: 14, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
+          {result.summary}
+        </div>
+      </Card>
+
+      {/* EV table */}
+      <Card style={{ padding: 0, marginBottom: 16 }}>
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <SectionLabel>EV 分析表 · {result.analysis?.length || 0} 玩法</SectionLabel>
+          <div className="flex items-center gap-3" style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+            <div className="flex items-center gap-1"><div style={{ width: 8, height: 8, borderRadius: 4, background: 'var(--positive)' }}/>VALUE</div>
+            <div className="flex items-center gap-1"><div style={{ width: 8, height: 8, borderRadius: 4, background: 'var(--fair)' }}/>FAIR</div>
+            <div className="flex items-center gap-1"><div style={{ width: 8, height: 8, borderRadius: 4, background: 'var(--negative)' }}/>AVOID</div>
+          </div>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 700 }}>
+            <thead>
+              <tr style={{ color: 'var(--text-tertiary)', textAlign: 'left' }}>
+                <th style={{ padding: '10px 16px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 500 }}>玩法 · 選項</th>
+                <th style={{ padding: '10px 8px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 500, textAlign: 'right' }}>賠率</th>
+                <th style={{ padding: '10px 8px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 500, minWidth: 180 }}>EV bar</th>
+                <th style={{ padding: '10px 8px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 500, textAlign: 'right' }}>Edge</th>
+                <th style={{ padding: '10px 16px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 500, textAlign: 'center', minWidth: 130 }}>下注</th>
+              </tr>
+            </thead>
+            <tbody>
+              {result.analysis?.map((row, i) => {
+                const sel = selections[i];
+                const tone = row.verdict === 'VALUE' ? 'positive' : row.verdict === 'AVOID' ? 'negative' : 'fair';
+                const defaultStake = row.verdict === 'VALUE' ? Math.min(Math.max(Math.round(row.edge / 2), 1), 3) : 1;
+                const isLocked = sel?.locked;
+                return (
+                  <tr key={i} style={{ borderTop: '1px solid var(--border-default)' }}>
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>{row.market}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{row.selection}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 4, lineHeight: 1.5, maxWidth: 220 }}>{row.reasoning}</div>
+                    </td>
+                    <td style={{ padding: '12px 8px', textAlign: 'right' }} className="mono">{row.odds.toFixed(2)}</td>
+                    <td style={{ padding: '12px 8px' }}>
+                      <EvBar impliedProb={row.impliedProb} estimatedProb={row.estimatedProb} verdict={row.verdict}/>
+                      <div className="flex items-center justify-between mono" style={{ fontSize: 9, color: 'var(--text-tertiary)', marginTop: 4 }}>
+                        <span>隱含 {row.impliedProb.toFixed(0)}%</span>
+                        <span style={{ color: `var(--${row.verdict === 'VALUE' ? 'positive' : row.verdict === 'AVOID' ? 'negative' : 'fair'})` }}>估 {row.estimatedProb.min}–{row.estimatedProb.max}%</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px 8px', textAlign: 'right' }} className="mono">
+                      <span style={{ color: row.edge >= 3 ? 'var(--positive)' : row.edge >= -2 ? 'var(--fair)' : 'var(--negative)', fontWeight: 500 }}>
+                        {row.edge >= 0 ? '+' : ''}{row.edge.toFixed(1)}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                      <div className="flex items-center justify-end gap-2">
+                        {sel?.checked && (
+                          <div className="flex items-center mono" style={{ background: 'var(--bg-elevated)', borderRadius: 6, padding: '2px 4px 2px 8px', border: '1px solid var(--border-default)' }}>
+                            <input
+                              type="number" min="0" max="5" step="0.5" value={sel.stakePct}
+                              disabled={isLocked}
+                              onChange={e => onStakeChange(i, parseFloat(e.target.value) || 0)}
+                              style={{ width: 36, background: 'transparent', border: 'none', color: 'var(--text-numeric)', fontSize: 12, fontFamily: 'JetBrains Mono', textAlign: 'right', outline: 'none' }}
+                            />
+                            <span style={{ color: 'var(--text-tertiary)', fontSize: 11, marginRight: 4 }}>%</span>
+                          </div>
+                        )}
+                        <button
+                          onClick={() => !isLocked && onToggle(i, defaultStake)}
+                          disabled={isLocked}
+                          style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${sel?.checked ? 'var(--positive)' : 'var(--border-focus)'}`, background: sel?.checked ? 'var(--positive)' : 'transparent', color: '#04221a', cursor: isLocked ? 'not-allowed' : 'pointer', fontSize: 14, lineHeight: 1, padding: 0, opacity: isLocked ? 0.5 : 1 }}
+                          title={isLocked ? '已儲存，無法修改' : ''}
+                        >{sel?.checked ? '✓' : ''}</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* Side info */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3" style={{ marginBottom: 16 }}>
+        {result.avoid && result.avoid.length > 0 && (
+          <Card style={{ background: 'rgba(251,113,133,0.05)', border: '1px solid rgba(251,113,133,0.2)' }}>
+            <div style={{ fontSize: 11, color: 'var(--negative)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 500, marginBottom: 10 }}>陷阱賠率 · 不要碰</div>
+            {result.avoid.map((a, i) => (
+              <div key={i} style={{ fontSize: 12, marginBottom: 6 }}>
+                <div style={{ color: 'var(--text-primary)' }}>{a.bet}</div>
+                <div style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>{a.reason}</div>
+              </div>
+            ))}
+          </Card>
+        )}
+        {result.preMatchChecks && result.preMatchChecks.length > 0 && (
+          <Card style={{ background: 'rgba(94,234,212,0.05)', border: '1px solid rgba(94,234,212,0.2)' }}>
+            <div style={{ fontSize: 11, color: 'var(--brand)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 500, marginBottom: 10 }}>賽前 1HR 確認</div>
+            {result.preMatchChecks.map((c, i) => (
+              <div key={i} style={{ fontSize: 12, marginBottom: 4, color: 'var(--text-secondary)' }}>□ {c}</div>
+            ))}
+          </Card>
+        )}
+      </div>
+
+      {/* Sticky bottom save bar */}
+      {selectedRows.length > 0 && (
+        <div style={{ position: 'sticky', bottom: 0, background: 'var(--bg-base)', padding: '14px 0', borderTop: '1px solid var(--border-default)', marginTop: 24 }}>
+          <div className="flex items-center justify-between">
+            <div style={{ fontSize: 13 }}>
+              <span style={{ color: 'var(--text-tertiary)' }}>已選 </span>
+              <span className="mono" style={{ fontWeight: 500 }}>{selectedRows.length}</span>
+              <span style={{ color: 'var(--text-tertiary)' }}> 筆 · 曝險 </span>
+              <span className="mono" style={{ fontWeight: 500, color: overLimit ? 'var(--negative)' : totalExposurePct > 5 ? 'var(--fair)' : 'var(--text-numeric)' }}>{totalExposurePct.toFixed(1)}%</span>
+              <span className="mono" style={{ color: 'var(--text-tertiary)', marginLeft: 4 }}>({formatNT(totalExposureNT)})</span>
+              {overLimit && <span style={{ color: 'var(--negative)', fontSize: 11, marginLeft: 12 }}>⚠ 超過 8% 紀律上限</span>}
+            </div>
+            <Button variant="success" size="md" onClick={onSave} disabled={overLimit || (mode === 'view' && !hasNewSelections)}>
+              {mode === 'view' ? (hasNewSelections ? '加入新 bets' : '已儲存') : '儲存到今日'}
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ============================================================
+// RESULT ENTRY MODAL
+// ============================================================
+function ResultEntryModal({ state, dispatch, matchId, onClose }) {
+  const match = state.matches.find(m => m.id === matchId);
+  const bets = state.bets.filter(b => b.matchId === matchId);
+  const [fullScore, setFullScore] = useState(match?.fullScore || ['', '']);
+  const [halfScore, setHalfScore] = useState(match?.halfScore || ['', '']);
+  const [markVoid, setMarkVoid] = useState(match?.isVoid || false);
+
+  if (!match) return null;
+
+  // Preview resolution
+  const preview = bets.map(b => {
+    if (markVoid) return { ...b, result: 'void', pnl: 0 };
+    const fs = [parseInt(fullScore[0]), parseInt(fullScore[1])];
+    if (Number.isNaN(fs[0]) || Number.isNaN(fs[1])) return { ...b, result: null, pnl: null };
+    const hs = halfScore[0] !== '' && halfScore[1] !== '' ? [parseInt(halfScore[0]), parseInt(halfScore[1])] : null;
+    const res = resolveBet(b, fs, hs, match.teamA, match.teamB);
+    const pnl = computePnL(b.stakeNT, b.odds, res);
+    return { ...b, result: res, pnl };
+  });
+  const totalPnL = preview.reduce((s, b) => s + (b.pnl || 0), 0);
+  const allResolved = preview.every(b => b.result && b.result !== 'unknown');
+  const canSave = markVoid || (fullScore[0] !== '' && fullScore[1] !== '' && allResolved);
+
+  const handleSave = () => {
+    if (!canSave) return;
+    const fs = markVoid ? null : [parseInt(fullScore[0]), parseInt(fullScore[1])];
+    const hs = markVoid ? null : (halfScore[0] !== '' && halfScore[1] !== '' ? [parseInt(halfScore[0]), parseInt(halfScore[1])] : null);
+    dispatch({ type: 'UPDATE_MATCH', payload: { id: matchId, fullScore: fs, halfScore: hs, isVoid: markVoid, resultEnteredAt: new Date().toISOString() } });
+    preview.forEach(p => {
+      dispatch({ type: 'UPDATE_BET', payload: { id: p.id, result: p.result, pnl: p.pnl, resolvedAt: new Date().toISOString() } });
+    });
+    onClose();
+  };
+
+  const resultLabel = { win: { text: '勝', color: 'var(--positive)' }, lose: { text: '負', color: 'var(--negative)' }, void: { text: '退', color: 'var(--text-tertiary)' }, unknown: { text: '?', color: 'var(--fair)' } };
+
+  return (
+    <Modal onClose={onClose} maxWidth={640}>
+      <div style={{ padding: 28 }}>
+        <div className="flex items-center justify-between" style={{ marginBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>輸入比分</div>
+            <div className="display" style={{ fontSize: 20, marginTop: 4 }}>{match.teamA} vs {match.teamB}</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: 18 }}>✕</button>
+        </div>
+
+        <div style={{ background: 'var(--bg-surface)', padding: 20, borderRadius: 12, marginBottom: 16, opacity: markVoid ? 0.4 : 1 }}>
+          <div className="flex items-center justify-center gap-4" style={{ marginBottom: 16 }}>
+            <div className="text-center">
+              <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 6 }}>{match.teamA}</div>
+              <input type="number" min="0" max="20" value={fullScore[0]} onChange={e => setFullScore([e.target.value, fullScore[1]])} disabled={markVoid}
+                style={{ width: 60, height: 60, fontSize: 28, textAlign: 'center', background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', borderRadius: 8, color: 'var(--text-numeric)', fontFamily: 'JetBrains Mono', fontWeight: 600 }}/>
+            </div>
+            <div style={{ fontSize: 24, color: 'var(--text-tertiary)' }}>:</div>
+            <div className="text-center">
+              <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 6 }}>{match.teamB}</div>
+              <input type="number" min="0" max="20" value={fullScore[1]} onChange={e => setFullScore([fullScore[0], e.target.value])} disabled={markVoid}
+                style={{ width: 60, height: 60, fontSize: 28, textAlign: 'center', background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', borderRadius: 8, color: 'var(--text-numeric)', fontFamily: 'JetBrains Mono', fontWeight: 600 }}/>
+            </div>
+          </div>
+          <div className="text-center" style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>全場比分 · 90 分鐘賽果</div>
+
+          <div className="flex items-center justify-center gap-3" style={{ marginTop: 20, paddingTop: 16, borderTop: '1px dashed var(--border-default)' }}>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>半場（選填）</div>
+            <input type="number" min="0" max="20" value={halfScore[0]} onChange={e => setHalfScore([e.target.value, halfScore[1]])} disabled={markVoid}
+              style={{ width: 40, padding: 6, background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', borderRadius: 6, color: 'var(--text-numeric)', fontFamily: 'JetBrains Mono', textAlign: 'center', fontSize: 13 }}/>
+            <span style={{ color: 'var(--text-tertiary)' }}>:</span>
+            <input type="number" min="0" max="20" value={halfScore[1]} onChange={e => setHalfScore([halfScore[0], e.target.value])} disabled={markVoid}
+              style={{ width: 40, padding: 6, background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', borderRadius: 6, color: 'var(--text-numeric)', fontFamily: 'JetBrains Mono', textAlign: 'center', fontSize: 13 }}/>
+          </div>
+        </div>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16, cursor: 'pointer' }}>
+          <input type="checkbox" checked={markVoid} onChange={e => setMarkVoid(e.target.checked)}/>
+          標記為退賽 / 取消（所有 bets 退款）
+        </label>
+
+        <div style={{ background: 'var(--bg-surface)', borderRadius: 12, padding: 16, marginBottom: 20 }}>
+          <SectionLabel>判定預覽 · {bets.length} 筆</SectionLabel>
+          <div className="space-y-2">
+            {preview.map(p => {
+              const r = p.result ? resultLabel[p.result] : null;
+              return (
+                <div key={p.id} className="flex items-center justify-between" style={{ padding: '8px 10px', background: 'var(--bg-elevated)', borderRadius: 6, fontSize: 12 }}>
+                  <div className="flex-1 min-w-0">
+                    <div style={{ marginBottom: 2 }}>{p.market} · {p.selection}</div>
+                    <div className="mono" style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>@{p.odds.toFixed(2)} · {formatNT(p.stakeNT)}</div>
+                  </div>
+                  {r ? (
+                    <div className="flex items-center gap-3 mono" style={{ fontSize: 12 }}>
+                      <span style={{ color: r.color, fontWeight: 500 }}>{r.text}</span>
+                      {p.pnl !== null && <span style={{ color: r.color, fontWeight: 500, minWidth: 70, textAlign: 'right' }}>{p.pnl >= 0 ? '+' : ''}{formatNT(p.pnl)}</span>}
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>輸入比分後判定</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {!markVoid && fullScore[0] !== '' && fullScore[1] !== '' && (
+            <div className="flex justify-between items-center" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-default)' }}>
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>本場淨利</div>
+              <div className="mono" style={{ fontSize: 18, fontWeight: 600, color: totalPnL > 0 ? 'var(--positive)' : totalPnL < 0 ? 'var(--negative)' : 'var(--text-numeric)' }}>
+                {totalPnL >= 0 ? '+' : ''}{formatNT(totalPnL)}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {!allResolved && !markVoid && fullScore[0] !== '' && fullScore[1] !== '' && (
+          <div style={{ background: 'var(--fair-soft)', padding: 12, borderRadius: 8, fontSize: 11, color: 'var(--fair)', marginBottom: 16, border: '1px solid rgba(251,191,36,0.3)' }}>
+            ⚠ 部分玩法無法自動判定（顯示 ?）。常見原因：半全場玩法需要半場比分、玩法名稱解析失敗。
+          </div>
+        )}
+
+        <div className="flex gap-2 justify-end">
+          <Button variant="ghost" onClick={onClose}>取消</Button>
+          <Button variant="primary" onClick={handleSave} disabled={!canSave}>儲存結果</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ============================================================
+// MAIN APP
+// ============================================================
+function reducer(state, action) {
+  switch (action.type) {
+    case 'SET_API_KEY': return { ...state, apiKey: action.payload };
+    case 'SET_BANKROLL': return { ...state, bankroll: action.payload };
+    case 'SET_LAST_EXPORT': return { ...state, lastExport: action.payload };
+    case 'ADD_MATCH': return { ...state, matches: [action.payload, ...state.matches] };
+    case 'ADD_BETS': return { ...state, bets: [...action.payload, ...state.bets] };
+    case 'UPDATE_MATCH': return { ...state, matches: state.matches.map(m => m.id === action.payload.id ? { ...m, ...action.payload } : m) };
+    case 'UPDATE_BET': return { ...state, bets: state.bets.map(b => b.id === action.payload.id ? { ...b, ...action.payload } : b) };
+    case 'IMPORT': return { ...state, matches: action.payload.matches, bets: action.payload.bets, bankroll: action.payload.bankroll };
+    case 'CLEAR_ALL': return { ...state, matches: [], bets: [], lastExport: null };
+    default: return state;
+  }
+}
+
+function App() {
+  const [state, dispatch] = useReducer(reducer, null, storage.load);
+  const [view, setView] = useState('today');
+  const [showSettings, setShowSettings] = useState(false);
+  const [analysisModal, setAnalysisModal] = useState(null); // { mode: 'new' | 'view', matchId? }
+  const [resultModal, setResultModal] = useState(null); // matchId
+
+  // Persist on every state change
+  useEffect(() => { storage.save(state); }, [state]);
+
+  // Open settings on first load if no API key
+  useEffect(() => { if (!state.apiKey) setShowSettings(true); }, []);
+
+  const setBankroll = (n) => dispatch({ type: 'SET_BANKROLL', payload: n });
+
+  return (
+    <div style={{ minHeight: '100vh' }}>
+      <TopNav view={view} setView={setView} bankroll={state.bankroll} setBankroll={setBankroll} hasApiKey={!!state.apiKey} onOpenSettings={() => setShowSettings(true)}/>
+
+      <div className="max-w-7xl mx-auto" style={{ padding: '32px 24px' }}>
+        {view === 'today' && (
+          <DashboardView
+            state={state} dispatch={dispatch}
+            openAnalysisNew={() => setAnalysisModal({ mode: 'new' })}
+            openAnalysisView={(matchId) => setAnalysisModal({ mode: 'view', matchId })}
+            openResultEntry={(matchId) => setResultModal(matchId)}
+          />
+        )}
+        {view === 'history' && (
+          <HistoryView state={state} openAnalysisView={(matchId) => setAnalysisModal({ mode: 'view', matchId })} openResultEntry={(matchId) => setResultModal(matchId)}/>
+        )}
+        {view === 'stats' && <StatsView state={state}/>}
+      </div>
+
+      {showSettings && <SettingsModal state={state} dispatch={dispatch} onClose={() => setShowSettings(false)}/>}
+      {analysisModal && <AnalysisDetailModal state={state} dispatch={dispatch} mode={analysisModal.mode} matchId={analysisModal.matchId} onClose={() => setAnalysisModal(null)}/>}
+      {resultModal && <ResultEntryModal state={state} dispatch={dispatch} matchId={resultModal} onClose={() => setResultModal(null)}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

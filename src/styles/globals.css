@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens populated in Step 7 (per HANDOFF migration list). */
+
+body {
+  background: #0b0c10;
+  color: #f3f4f6;
+  font-family: system-ui, -apple-system, sans-serif;
+  margin: 0;
+}
