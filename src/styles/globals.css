@@ -29,6 +29,7 @@
   --space-section: 28px;
   --duration-fade: 200ms;
   --easing-base: cubic-bezier(0.4, 0, 0.2, 1);
+  --bg-overlay: rgba(0, 0, 0, 0.7);
   color-scheme: dark;
 }
 
