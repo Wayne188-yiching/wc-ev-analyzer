@@ -1,6 +1,20 @@
-import type { Bet } from '../types';
+import type { Bet, BetResult } from '../types';
 
 export type ResolveBetResult = 'win' | 'lose' | 'void' | 'unknown';
+
+/**
+ * Convert a settled bet into P/L (NT$).
+ *  - 'win'  → stake × (odds - 1)
+ *  - 'lose' → -stake
+ *  - 'void' → 0
+ *  - null   → null (undecided)
+ */
+export function computePnL(stake: number, odds: number, result: BetResult): number | null {
+  if (result === 'win') return stake * (odds - 1);
+  if (result === 'lose') return -stake;
+  if (result === 'void') return 0;
+  return null;
+}
 
 /**
  * Resolve a bet against actual 90-minute scores.
