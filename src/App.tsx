@@ -1,8 +1,36 @@
-export default function App() {
+import { useState } from 'react';
+import { useAppState } from './hooks/useAppState';
+import { TopNav } from './views/TopNav';
+
+type Tab = 'dashboard' | 'history' | 'stats';
+
+export default function App(): JSX.Element {
+  const { state, dispatch } = useAppState();
+  const [tab, setTab] = useState<Tab>('dashboard');
+
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold">WC EV Analyzer</h1>
-      <p className="text-sm opacity-70 mt-2">Scaffold OK · awaiting Step 1</p>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-base)' }}>
+      <TopNav
+        tab={tab}
+        onTabChange={setTab}
+        bankroll={state.bankroll}
+        onBankrollChange={(b) => dispatch({ type: 'SET_BANKROLL', payload: b })}
+        hasApiKey={Boolean(state.apiKey)}
+        onOpenSettings={() => alert('Settings — Step 16 開放')}
+      />
+      <main style={{ maxWidth: 'var(--max-w-container)', margin: '0 auto', padding: 24 }}>
+        {tab === 'dashboard' && <Placeholder name="DashboardView" step={11} />}
+        {tab === 'history' && <Placeholder name="HistoryView" step={15} />}
+        {tab === 'stats' && <Placeholder name="StatsView" step={14} />}
+      </main>
+    </div>
+  );
+}
+
+function Placeholder({ name, step }: { name: string; step: number }): JSX.Element {
+  return (
+    <div style={{ padding: 32, color: 'var(--text-tertiary)', textAlign: 'center' }}>
+      {name} placeholder · Step {step}
     </div>
   );
 }
