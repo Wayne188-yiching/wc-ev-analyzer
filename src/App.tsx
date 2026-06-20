@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useAppState } from './hooks/useAppState';
 import { TopNav } from './views/TopNav';
 import { DashboardView } from './views/DashboardView';
+import { HistoryView } from './views/HistoryView';
 import { StatsView } from './views/StatsView';
 import { AnalysisDetailModal } from './views/AnalysisDetailModal';
 import { ResultEntryModal } from './views/ResultEntryModal';
@@ -40,7 +41,13 @@ export default function App(): JSX.Element {
             onOpenResultEntry={(id) => setResultModalId(id)}
           />
         )}
-        {tab === 'history' && <Placeholder name="HistoryView" step={15} />}
+        {tab === 'history' && (
+          <HistoryView
+            state={state}
+            onOpenAnalysisView={(id) => setAnalysisModal({ mode: 'view', matchId: id })}
+            onOpenResultEntry={(id) => setResultModalId(id)}
+          />
+        )}
         {tab === 'stats' && <StatsView state={state} />}
       </main>
       {analysisModal && (
@@ -64,10 +71,3 @@ export default function App(): JSX.Element {
   );
 }
 
-function Placeholder({ name, step }: { name: string; step: number }): JSX.Element {
-  return (
-    <div style={{ padding: 32, color: 'var(--text-tertiary)', textAlign: 'center' }}>
-      {name} placeholder · Step {step}
-    </div>
-  );
-}
