@@ -6,6 +6,7 @@ import { HistoryView } from './views/HistoryView';
 import { StatsView } from './views/StatsView';
 import { AnalysisDetailModal } from './views/AnalysisDetailModal';
 import { ResultEntryModal } from './views/ResultEntryModal';
+import { SettingsModal } from './views/SettingsModal';
 
 type Tab = 'dashboard' | 'history' | 'stats';
 type AnalysisModalState =
@@ -18,9 +19,11 @@ export default function App(): JSX.Element {
   const [tab, setTab] = useState<Tab>('dashboard');
   const [analysisModal, setAnalysisModal] = useState<AnalysisModalState>(null);
   const [resultModalId, setResultModalId] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
 
   const closeAnalysisModal = useCallback(() => setAnalysisModal(null), []);
   const closeResultModal = useCallback(() => setResultModalId(null), []);
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-base)' }}>
@@ -30,7 +33,7 @@ export default function App(): JSX.Element {
         bankroll={state.bankroll}
         onBankrollChange={(b) => dispatch({ type: 'SET_BANKROLL', payload: b })}
         hasApiKey={Boolean(state.apiKey)}
-        onOpenSettings={() => alert('Settings — Step 16 開放')}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
       <main style={{ maxWidth: 'var(--max-w-container)', margin: '0 auto', padding: 24 }}>
         {tab === 'dashboard' && (
@@ -65,6 +68,13 @@ export default function App(): JSX.Element {
           dispatch={dispatch}
           matchId={resultModalId}
           onClose={closeResultModal}
+        />
+      )}
+      {settingsOpen && (
+        <SettingsModal
+          state={state}
+          dispatch={dispatch}
+          onClose={closeSettings}
         />
       )}
     </div>
