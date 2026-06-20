@@ -1,13 +1,21 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useAppState } from './hooks/useAppState';
 import { TopNav } from './views/TopNav';
 import { DashboardView } from './views/DashboardView';
+import { AnalysisDetailModal } from './views/AnalysisDetailModal';
 
 type Tab = 'dashboard' | 'history' | 'stats';
+type AnalysisModalState =
+  | { mode: 'new'; matchId: null }
+  | { mode: 'view'; matchId: string }
+  | null;
 
 export default function App(): JSX.Element {
   const { state, dispatch } = useAppState();
   const [tab, setTab] = useState<Tab>('dashboard');
+  const [analysisModal, setAnalysisModal] = useState<AnalysisModalState>(null);
+
+  const closeAnalysisModal = useCallback(() => setAnalysisModal(null), []);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-base)' }}>
@@ -23,14 +31,23 @@ export default function App(): JSX.Element {
         {tab === 'dashboard' && (
           <DashboardView
             state={state}
-            onOpenAnalysisNew={() => alert('AnalysisDetailModal (new) — Step 12')}
-            onOpenAnalysisView={(id) => alert(`AnalysisDetailModal (view ${id}) — Step 12`)}
+            onOpenAnalysisNew={() => setAnalysisModal({ mode: 'new', matchId: null })}
+            onOpenAnalysisView={(id) => setAnalysisModal({ mode: 'view', matchId: id })}
             onOpenResultEntry={(id) => alert(`ResultEntryModal (${id}) — Step 13`)}
           />
         )}
         {tab === 'history' && <Placeholder name="HistoryView" step={15} />}
         {tab === 'stats' && <Placeholder name="StatsView" step={14} />}
       </main>
+      {analysisModal && (
+        <AnalysisDetailModal
+          state={state}
+          dispatch={dispatch}
+          mode={analysisModal.mode}
+          matchId={analysisModal.matchId}
+          onClose={closeAnalysisModal}
+        />
+      )}
     </div>
   );
 }
