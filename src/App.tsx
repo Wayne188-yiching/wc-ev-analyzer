@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAppState } from './hooks/useAppState';
 import { TopNav } from './views/TopNav';
+import { DashboardView } from './views/DashboardView';
 
 type Tab = 'dashboard' | 'history' | 'stats';
 
@@ -19,7 +20,14 @@ export default function App(): JSX.Element {
         onOpenSettings={() => alert('Settings — Step 16 開放')}
       />
       <main style={{ maxWidth: 'var(--max-w-container)', margin: '0 auto', padding: 24 }}>
-        {tab === 'dashboard' && <Placeholder name="DashboardView" step={11} />}
+        {tab === 'dashboard' && (
+          <DashboardView
+            state={state}
+            onOpenAnalysisNew={() => alert('AnalysisDetailModal (new) — Step 12')}
+            onOpenAnalysisView={(id) => alert(`AnalysisDetailModal (view ${id}) — Step 12`)}
+            onOpenResultEntry={(id) => alert(`ResultEntryModal (${id}) — Step 13`)}
+          />
+        )}
         {tab === 'history' && <Placeholder name="HistoryView" step={15} />}
         {tab === 'stats' && <Placeholder name="StatsView" step={14} />}
       </main>
