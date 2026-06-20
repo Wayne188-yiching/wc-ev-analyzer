@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useAppState } from './hooks/useAppState';
 import { TopNav } from './views/TopNav';
 import { DashboardView } from './views/DashboardView';
+import { StatsView } from './views/StatsView';
 import { AnalysisDetailModal } from './views/AnalysisDetailModal';
 import { ResultEntryModal } from './views/ResultEntryModal';
 
@@ -40,7 +41,7 @@ export default function App(): JSX.Element {
           />
         )}
         {tab === 'history' && <Placeholder name="HistoryView" step={15} />}
-        {tab === 'stats' && <Placeholder name="StatsView" step={14} />}
+        {tab === 'stats' && <StatsView state={state} />}
       </main>
       {analysisModal && (
         <AnalysisDetailModal
