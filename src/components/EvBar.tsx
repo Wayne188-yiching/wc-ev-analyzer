@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+import { gsap } from 'gsap';
 import type { EvVerdict, ProbRange } from '../types';
 
 export interface EvBarProps {
@@ -10,6 +12,29 @@ export interface EvBarProps {
 
 export function EvBar(props: EvBarProps): JSX.Element | null {
   const { impliedProb, estimatedProb, verdict, compact = false } = props;
+  const fillRef = useRef<HTMLDivElement>(null);
+
+  const targetWidth = estimatedProb
+    ? Math.max(estimatedProb.max - estimatedProb.min, 0.5)
+    : 0;
+
+  useEffect(() => {
+    const el = fillRef.current;
+    if (!el) return;
+    const prefersReducedMotion = typeof window !== 'undefined'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) {
+      el.style.width = `${targetWidth}%`;
+      return;
+    }
+    const tween = gsap.fromTo(
+      el,
+      { width: '0%' },
+      { width: `${targetWidth}%`, duration: 0.4, ease: 'power2.out' },
+    );
+    return () => { tween.kill(); };
+  }, [targetWidth]);
+
   if (!estimatedProb || typeof impliedProb !== 'number') return null;
 
   const verdictColor =
@@ -30,9 +55,10 @@ export function EvBar(props: EvBarProps): JSX.Element | null {
       }}
     >
       <div
+        ref={fillRef}
         style={{
           position: 'absolute', top: 0, bottom: 0, left: `${estimatedProb.min}%`,
-          width: `${Math.max(estimatedProb.max - estimatedProb.min, 0.5)}%`,
+          width: '0%',
           background: verdictColor, opacity: 0.95, borderRadius: h / 2,
         }}
       />
