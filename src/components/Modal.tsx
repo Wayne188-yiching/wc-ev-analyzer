@@ -1,10 +1,13 @@
 import { useEffect, useRef } from 'react';
 import type { ReactNode, CSSProperties } from 'react';
+import { gsap, useGSAP, prefersReducedMotion } from '../lib/motion';
 
 export interface ModalProps { onClose: () => void; children: ReactNode; maxWidth?: number; ariaLabel: string; }
 
 export function Modal({ onClose, children, maxWidth = 1100, ariaLabel }: ModalProps): JSX.Element {
   const modalRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const prevActive = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     document.body.style.overflow = 'hidden';
@@ -19,6 +22,15 @@ export function Modal({ onClose, children, maxWidth = 1100, ariaLabel }: ModalPr
       prevActive?.focus();
     };
   }, [onClose]);
+
+  // Entrance choreography: overlay fade + card scale/y, back.out easing for snap.
+  useGSAP(() => {
+    if (prefersReducedMotion()) return;
+    const tl = gsap.timeline();
+    tl.from(modalRef.current, { opacity: 0, duration: 0.25, ease: 'power2.out' });
+    tl.from(cardRef.current, { scale: 0.96, y: 24, opacity: 0, duration: 0.5, ease: 'back.out(1.2)' }, '-=0.15');
+  }, { scope: modalRef });
+
   const overlayStyle: CSSProperties = {
     position: 'fixed',
     inset: 0,
@@ -45,7 +57,7 @@ export function Modal({ onClose, children, maxWidth = 1100, ariaLabel }: ModalPr
       style={overlayStyle}
       tabIndex={-1}
     >
-      <div onClick={(event) => { event.stopPropagation(); }} style={cardStyle}>
+      <div ref={cardRef} onClick={(event) => { event.stopPropagation(); }} style={cardStyle}>
         {children}
       </div>
     </div>

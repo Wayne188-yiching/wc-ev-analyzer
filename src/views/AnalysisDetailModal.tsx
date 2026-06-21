@@ -10,6 +10,7 @@ import { formatNT, uid } from '../lib/format';
 import { analyzeMatch } from '../lib/api';
 import type { AppState, Match, Bet, AnalysisResult } from '../types';
 import type { AppAction } from '../hooks/useAppState';
+import { gsap, useGSAP, SplitText, prefersReducedMotion } from '../lib/motion';
 
 export type AnalysisDetailMode = 'new' | 'view';
 
@@ -57,6 +58,9 @@ export function AnalysisDetailModal(props: AnalysisDetailModalProps): JSX.Elemen
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(existingMatch?.aiResult ?? null);
   const [selections, setSelections] = useState<Record<number, SelectionState>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const saveBarRef = useRef<HTMLDivElement>(null);
+  const saveBarWasVisibleRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (!existingMatch?.aiResult || existingBets.length === 0) return;
@@ -164,6 +168,42 @@ export function AnalysisDetailModal(props: AnalysisDetailModalProps): JSX.Elemen
 
   const modalLabel = mode === 'new' ? '新增分析' : '查看分析';
   const result = analysisResult;
+
+  // A3 + A5 + side-card stagger choreography, runs after modal entrance (~0.4s).
+  useGSAP(() => {
+    if (prefersReducedMotion()) return;
+    if (!result) return;
+    const root = bodyRef.current;
+    if (!root) return;
+    const tl = gsap.timeline({ delay: 0.4 });
+    const teamAEl = root.querySelector('[data-anim="team-a"]');
+    const teamBEl = root.querySelector('[data-anim="team-b"]');
+    const splits: SplitText[] = [];
+    if (teamAEl) {
+      const s = new SplitText(teamAEl as HTMLElement, { type: 'chars' });
+      splits.push(s);
+      tl.from(s.chars, { x: -12, opacity: 0, stagger: 0.04, duration: 0.4, ease: 'power3.out' }, 0);
+    }
+    if (teamBEl) {
+      const s = new SplitText(teamBEl as HTMLElement, { type: 'chars' });
+      splits.push(s);
+      tl.from(s.chars, { x: 12, opacity: 0, stagger: 0.04, duration: 0.4, ease: 'power3.out' }, 0);
+    }
+    tl.from('[data-anim="ev-row"]', { x: -8, opacity: 0, stagger: 0.06, duration: 0.4, ease: 'power2.out' }, 0.3);
+    tl.from('[data-anim="side-card"]', { y: 16, opacity: 0, stagger: 0.1, duration: 0.4, ease: 'power2.out' }, 0.6);
+    return () => { splits.forEach((s) => s.revert()); };
+  }, { scope: bodyRef, dependencies: [result] });
+
+  // A7 save bar slide-up only when transitioning 0 → >0.
+  useEffect(() => {
+    const isVisible = selectedRows.length > 0;
+    if (isVisible && !saveBarWasVisibleRef.current && saveBarRef.current) {
+      if (!prefersReducedMotion()) {
+        gsap.from(saveBarRef.current, { y: 60, opacity: 0, duration: 0.4, ease: 'back.out(1.4)' });
+      }
+    }
+    saveBarWasVisibleRef.current = isVisible;
+  }, [selectedRows.length]);
   const saveLabel = mode === 'new' ? '儲存到今日' : (hasUnlockedSelections ? '加入新 bets' : '已儲存');
   const saveDisabled = overLimit || selectedRows.length === 0 || (mode === 'view' && !hasUnlockedSelections);
   const analyzeLabel = analyzing ? '分析中...（15-30 秒）' : !state.apiKey ? '請先設定 API Key' : '啟動 EV 分析';
@@ -176,7 +216,7 @@ export function AnalysisDetailModal(props: AnalysisDetailModalProps): JSX.Elemen
         </div>
         <button aria-label="關閉" onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-tertiary)', fontSize: 18, cursor: 'pointer', fontFamily: 'inherit' }} type="button">✕</button>
       </div>
-      <div style={{ padding: 28 }}>
+      <div ref={bodyRef} style={{ padding: 28 }}>
         {!result && mode === 'new' && (
           <>
             <div
@@ -215,7 +255,7 @@ export function AnalysisDetailModal(props: AnalysisDetailModalProps): JSX.Elemen
             <Card style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 24, color: 'var(--text-primary)' }}>{result.match.teamA}</div>
+                  <div data-anim="team-a" style={{ fontSize: 24, color: 'var(--text-primary)' }}>{result.match.teamA}</div>
                   <div className="mono" style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>strength {result.teamRatings.teamA}</div>
                 </div>
                 <div style={{ padding: '0 24px', textAlign: 'center' }}>
@@ -224,7 +264,7 @@ export function AnalysisDetailModal(props: AnalysisDetailModalProps): JSX.Elemen
                   {result.match.venue && <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 2 }}>{result.match.venue}</div>}
                 </div>
                 <div style={{ flex: 1, textAlign: 'right' }}>
-                  <div style={{ fontSize: 24, color: 'var(--text-primary)' }}>{result.match.teamB}</div>
+                  <div data-anim="team-b" style={{ fontSize: 24, color: 'var(--text-primary)' }}>{result.match.teamB}</div>
                   <div className="mono" style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>strength {result.teamRatings.teamB}</div>
                 </div>
               </div>
@@ -259,7 +299,7 @@ export function AnalysisDetailModal(props: AnalysisDetailModalProps): JSX.Elemen
                       const edgeColor = row.edge >= 3 ? 'var(--positive)' : row.edge >= -2 ? 'var(--fair)' : 'var(--negative)';
                       const verdictColor = row.verdict === 'VALUE' ? 'var(--positive)' : row.verdict === 'FAIR' ? 'var(--fair)' : 'var(--negative)';
                       return (
-                        <tr key={`${row.market}-${row.selection}-${i}`} style={{ borderTop: '1px solid var(--border-default)' }}>
+                        <tr data-anim="ev-row" key={`${row.market}-${row.selection}-${i}`} style={{ borderTop: '1px solid var(--border-default)' }}>
                           <td style={{ textAlign: 'left', padding: '12px 16px' }}>
                             <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 2 }}>{row.market}</div>
                             <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{row.selection}</div>
@@ -282,7 +322,7 @@ export function AnalysisDetailModal(props: AnalysisDetailModalProps): JSX.Elemen
                                   <span style={{ color: 'var(--text-tertiary)', fontSize: 11, marginRight: 4 }}>%</span>
                                 </div>
                               )}
-                              <button aria-label={locked ? '已儲存' : checked ? '取消勾選' : '勾選下注'} title={locked ? '已儲存，無法修改' : ''} onClick={() => { if (!locked) handleToggle(i, row); }} style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${checked ? 'var(--positive)' : 'var(--border-focus)'}`, background: checked ? 'var(--positive)' : 'transparent', color: 'var(--bg-base)', cursor: locked ? 'not-allowed' : 'pointer', fontSize: 14, lineHeight: 1, padding: 0, opacity: locked ? 0.5 : 1, fontFamily: 'inherit' }} type="button">{checked ? '✓' : ''}</button>
+                              <button aria-label={locked ? '已儲存' : checked ? '取消勾選' : '勾選下注'} title={locked ? '已儲存，無法修改' : ''} onClick={(event) => { if (locked) return; const el = event.currentTarget; handleToggle(i, row); if (!prefersReducedMotion()) { gsap.fromTo(el, { scale: 0.9 }, { scale: 1, duration: 0.3, ease: 'back.out(2)' }); } }} style={{ width: 22, height: 22, borderRadius: 6, border: `1px solid ${checked ? 'var(--positive)' : 'var(--border-focus)'}`, background: checked ? 'var(--positive)' : 'transparent', color: 'var(--bg-base)', cursor: locked ? 'not-allowed' : 'pointer', fontSize: 14, lineHeight: 1, padding: 0, opacity: locked ? 0.5 : 1, fontFamily: 'inherit' }} type="button">{checked ? '✓' : ''}</button>
                             </div>
                           </td>
                         </tr>
@@ -294,7 +334,7 @@ export function AnalysisDetailModal(props: AnalysisDetailModalProps): JSX.Elemen
             </Card>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 12, marginBottom: 16 }}>
               {result.avoid.length > 0 && (
-                <div style={{ background: 'var(--negative-soft)', border: '1px solid var(--negative)', borderRadius: 'var(--radius-card)', padding: 16 }}>
+                <div data-anim="side-card" style={{ background: 'var(--negative-soft)', border: '1px solid var(--negative)', borderRadius: 'var(--radius-card)', padding: 16 }}>
                   <div style={{ textTransform: 'uppercase', fontSize: 11, color: 'var(--negative)', letterSpacing: '0.08em', fontWeight: 500, marginBottom: 10 }}>陷阱賠率 · 不要碰</div>
                   {result.avoid.map((item, i) => (
                     <div key={`${item.bet}-${i}`} style={{ marginBottom: 6 }}>
@@ -305,7 +345,7 @@ export function AnalysisDetailModal(props: AnalysisDetailModalProps): JSX.Elemen
                 </div>
               )}
               {result.preMatchChecks.length > 0 && (
-                <div style={{ background: 'var(--brand-soft)', border: '1px solid var(--brand)', borderRadius: 'var(--radius-card)', padding: 16 }}>
+                <div data-anim="side-card" style={{ background: 'var(--brand-soft)', border: '1px solid var(--brand)', borderRadius: 'var(--radius-card)', padding: 16 }}>
                   <div style={{ textTransform: 'uppercase', fontSize: 11, color: 'var(--brand)', letterSpacing: '0.08em', fontWeight: 500, marginBottom: 10 }}>賽前 1HR 確認</div>
                   {result.preMatchChecks.map((item, i) => (
                     <div key={`${item}-${i}`} style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>□ {item}</div>
@@ -314,7 +354,7 @@ export function AnalysisDetailModal(props: AnalysisDetailModalProps): JSX.Elemen
               )}
             </div>
             {selectedRows.length > 0 && (
-              <div style={{ position: 'sticky', bottom: 0, background: 'var(--bg-base)', padding: '14px 0', borderTop: '1px solid var(--border-default)', marginTop: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div ref={saveBarRef} style={{ position: 'sticky', bottom: 0, background: 'var(--bg-base)', padding: '14px 0', borderTop: '1px solid var(--border-default)', marginTop: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ fontSize: 13 }}>
                   <span style={{ color: 'var(--text-tertiary)' }}>已選 </span>
                   <span className="mono" style={{ fontWeight: 500 }}>{selectedRows.length}</span>
