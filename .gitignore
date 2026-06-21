@@ -10,6 +10,7 @@ dist-ssr/
 .vscode/*
 !.vscode/extensions.json
 .idea/
+.claude/
 .DS_Store
 *.suo
 *.ntvs*
@@ -30,6 +31,9 @@ lerna-debug.log*
 .env
 .env.local
 .env.*.local
+
+# Local GitHub CLI credentials
+.gh-cli/
 
 # Test coverage
 coverage/
