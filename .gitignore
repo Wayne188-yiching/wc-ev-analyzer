@@ -37,3 +37,6 @@ coverage/
 
 # Vite cache
 .vite/
+
+# Playwright MCP scratch (raw snapshots / console logs from E2E tests)
+.playwright-mcp/
