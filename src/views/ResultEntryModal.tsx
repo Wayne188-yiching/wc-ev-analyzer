@@ -129,20 +129,20 @@ export function ResultEntryModal({ state, dispatch, matchId, onClose }: ResultEn
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginBottom: 16 }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 6 }}>{match.teamA}</div>
-              <input aria-label={`全場 ${match.teamA} 得分`} className="mono" disabled={markVoid} max={20} min={0} onChange={(event) => setFullScore((prev) => [event.currentTarget.value, prev[1]])} style={fullInputStyle} type="number" value={fullScore[0]} />
+              <input aria-label={`全場 ${match.teamA} 得分`} className="mono" disabled={markVoid} max={20} min={0} onChange={(event) => { const v = event.currentTarget.value; setFullScore((prev) => [v, prev[1]]); }} style={fullInputStyle} type="number" value={fullScore[0]} />
             </div>
             <div className="mono" style={{ color: 'var(--text-tertiary)', fontSize: 24, marginTop: 20 }}>:</div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 6 }}>{match.teamB}</div>
-              <input aria-label={`全場 ${match.teamB} 得分`} className="mono" disabled={markVoid} max={20} min={0} onChange={(event) => setFullScore((prev) => [prev[0], event.currentTarget.value])} style={fullInputStyle} type="number" value={fullScore[1]} />
+              <input aria-label={`全場 ${match.teamB} 得分`} className="mono" disabled={markVoid} max={20} min={0} onChange={(event) => { const v = event.currentTarget.value; setFullScore((prev) => [prev[0], v]); }} style={fullInputStyle} type="number" value={fullScore[1]} />
             </div>
           </div>
           <div style={{ color: 'var(--text-tertiary)', fontSize: 11, textAlign: 'center' }}>全場比分 · 90 分鐘賽果</div>
           <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px dashed var(--border-default)', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12 }}>
             <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>半場（選填）</span>
-            <input aria-label={`半場 ${match.teamA} 得分`} className="mono" disabled={markVoid} max={20} min={0} onChange={(event) => setHalfScore((prev) => [event.currentTarget.value, prev[1]])} style={halfInputStyle} type="number" value={halfScore[0]} />
+            <input aria-label={`半場 ${match.teamA} 得分`} className="mono" disabled={markVoid} max={20} min={0} onChange={(event) => { const v = event.currentTarget.value; setHalfScore((prev) => [v, prev[1]]); }} style={halfInputStyle} type="number" value={halfScore[0]} />
             <span className="mono" style={{ color: 'var(--text-tertiary)' }}>:</span>
-            <input aria-label={`半場 ${match.teamB} 得分`} className="mono" disabled={markVoid} max={20} min={0} onChange={(event) => setHalfScore((prev) => [prev[0], event.currentTarget.value])} style={halfInputStyle} type="number" value={halfScore[1]} />
+            <input aria-label={`半場 ${match.teamB} 得分`} className="mono" disabled={markVoid} max={20} min={0} onChange={(event) => { const v = event.currentTarget.value; setHalfScore((prev) => [prev[0], v]); }} style={halfInputStyle} type="number" value={halfScore[1]} />
           </div>
         </div>
 
