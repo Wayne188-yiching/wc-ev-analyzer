@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import type { CSSProperties, Dispatch } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties, Dispatch, FocusEvent } from 'react';
 import { Modal } from '../components/Modal';
 import { Button } from '../components/Button';
 import { SectionLabel } from '../components/SectionLabel';
@@ -7,6 +7,16 @@ import { formatNT } from '../lib/format';
 import { computePnL, resolveBet } from '../lib/resolve-bet';
 import type { AppState, Bet, BetResult } from '../types';
 import type { AppAction } from '../hooks/useAppState';
+import { gsap, prefersReducedMotion } from '../lib/motion';
+
+function focusScale(event: FocusEvent<HTMLInputElement>): void {
+  if (prefersReducedMotion()) return;
+  gsap.to(event.currentTarget, { scale: 1.05, duration: 0.2, ease: 'power2.out' });
+}
+function blurScale(event: FocusEvent<HTMLInputElement>): void {
+  if (prefersReducedMotion()) return;
+  gsap.to(event.currentTarget, { scale: 1, duration: 0.2, ease: 'power2.out' });
+}
 
 export interface ResultEntryModalProps {
   state: AppState;
@@ -87,6 +97,8 @@ export function ResultEntryModal({ state, dispatch, matchId, onClose }: ResultEn
   const [halfScore, setHalfScore] = useState<ScoreTuple>(() => scoreToStrings(match?.halfScore ?? null));
   const [markVoid, setMarkVoid] = useState<boolean>(() => match?.isVoid ?? false);
   const bets = useMemo(() => state.bets.filter((bet) => bet.matchId === matchId), [state.bets, matchId]);
+  const totalPnlRef = useRef<HTMLSpanElement>(null);
+  const lastTotalPnLRef = useRef<number>(0);
   if (!match) return null;
 
   const fullParsed = parseScore(fullScore);
@@ -99,6 +111,26 @@ export function ResultEntryModal({ state, dispatch, matchId, onClose }: ResultEn
   const showTotal = !markVoid && scoresFilled;
   const showWarning = !markVoid && scoresFilled && !allResolved;
   const totalColor = totalPnL > 0 ? 'var(--positive)' : totalPnL < 0 ? 'var(--negative)' : 'var(--text-numeric)';
+
+  useEffect(() => {
+    const el = totalPnlRef.current;
+    if (!el) return;
+    const from = lastTotalPnLRef.current;
+    const to = totalPnL;
+    lastTotalPnLRef.current = to;
+    if (prefersReducedMotion() || from === to) {
+      el.textContent = formatNT(to, { signed: true });
+      return;
+    }
+    const obj = { v: from };
+    const tween = gsap.to(obj, {
+      v: to,
+      duration: 0.4,
+      ease: 'power2.out',
+      onUpdate: () => { el.textContent = formatNT(obj.v, { signed: true }); },
+    });
+    return () => { tween.kill(); };
+  }, [totalPnL]);
 
   const handleSave = (): void => {
     if (!canSave) return;
@@ -129,20 +161,20 @@ export function ResultEntryModal({ state, dispatch, matchId, onClose }: ResultEn
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginBottom: 16 }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 6 }}>{match.teamA}</div>
-              <input aria-label={`全場 ${match.teamA} 得分`} className="mono" disabled={markVoid} max={20} min={0} onChange={(event) => { const v = event.currentTarget.value; setFullScore((prev) => [v, prev[1]]); }} style={fullInputStyle} type="number" value={fullScore[0]} />
+              <input aria-label={`全場 ${match.teamA} 得分`} className="mono" disabled={markVoid} max={20} min={0} onBlur={blurScale} onChange={(event) => { const v = event.currentTarget.value; setFullScore((prev) => [v, prev[1]]); }} onFocus={focusScale} style={fullInputStyle} type="number" value={fullScore[0]} />
             </div>
             <div className="mono" style={{ color: 'var(--text-tertiary)', fontSize: 24, marginTop: 20 }}>:</div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 6 }}>{match.teamB}</div>
-              <input aria-label={`全場 ${match.teamB} 得分`} className="mono" disabled={markVoid} max={20} min={0} onChange={(event) => { const v = event.currentTarget.value; setFullScore((prev) => [prev[0], v]); }} style={fullInputStyle} type="number" value={fullScore[1]} />
+              <input aria-label={`全場 ${match.teamB} 得分`} className="mono" disabled={markVoid} max={20} min={0} onBlur={blurScale} onChange={(event) => { const v = event.currentTarget.value; setFullScore((prev) => [prev[0], v]); }} onFocus={focusScale} style={fullInputStyle} type="number" value={fullScore[1]} />
             </div>
           </div>
           <div style={{ color: 'var(--text-tertiary)', fontSize: 11, textAlign: 'center' }}>全場比分 · 90 分鐘賽果</div>
           <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px dashed var(--border-default)', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12 }}>
             <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>半場（選填）</span>
-            <input aria-label={`半場 ${match.teamA} 得分`} className="mono" disabled={markVoid} max={20} min={0} onChange={(event) => { const v = event.currentTarget.value; setHalfScore((prev) => [v, prev[1]]); }} style={halfInputStyle} type="number" value={halfScore[0]} />
+            <input aria-label={`半場 ${match.teamA} 得分`} className="mono" disabled={markVoid} max={20} min={0} onBlur={blurScale} onChange={(event) => { const v = event.currentTarget.value; setHalfScore((prev) => [v, prev[1]]); }} onFocus={focusScale} style={halfInputStyle} type="number" value={halfScore[0]} />
             <span className="mono" style={{ color: 'var(--text-tertiary)' }}>:</span>
-            <input aria-label={`半場 ${match.teamB} 得分`} className="mono" disabled={markVoid} max={20} min={0} onChange={(event) => { const v = event.currentTarget.value; setHalfScore((prev) => [prev[0], v]); }} style={halfInputStyle} type="number" value={halfScore[1]} />
+            <input aria-label={`半場 ${match.teamB} 得分`} className="mono" disabled={markVoid} max={20} min={0} onBlur={blurScale} onChange={(event) => { const v = event.currentTarget.value; setHalfScore((prev) => [prev[0], v]); }} onFocus={focusScale} style={halfInputStyle} type="number" value={halfScore[1]} />
           </div>
         </div>
 
@@ -167,7 +199,7 @@ export function ResultEntryModal({ state, dispatch, matchId, onClose }: ResultEn
           {showTotal && (
             <div style={{ borderTop: '1px solid var(--border-default)', marginTop: 12, paddingTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>本場淨利</span>
-              <span className="mono" style={{ color: totalColor, fontSize: 18, fontWeight: 600 }}>{formatNT(totalPnL, { signed: true })}</span>
+              <span ref={totalPnlRef} className="mono" style={{ color: totalColor, fontSize: 18, fontWeight: 600 }}>{formatNT(totalPnL, { signed: true })}</span>
             </div>
           )}
         </div>

@@ -4,6 +4,7 @@ import { Modal } from '../components/Modal';
 import { Button } from '../components/Button';
 import type { AppState, Match, Bet } from '../types';
 import type { AppAction } from '../hooks/useAppState';
+import { gsap, useGSAP, prefersReducedMotion } from '../lib/motion';
 
 export interface SettingsModalProps {
   state: AppState;
@@ -41,6 +42,12 @@ export function SettingsModal({ state, dispatch, onClose }: SettingsModalProps):
   const [showKey, setShowKey] = useState<boolean>(false);
   const [saved, setSaved] = useState<'' | 'key' | 'export' | 'import' | 'reset'>('');
   const importRef = useRef<HTMLInputElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  useGSAP(() => {
+    if (prefersReducedMotion()) return;
+    gsap.from('[data-anim="settings-section"]', { y: 14, opacity: 0, stagger: 0.1, duration: 0.4, ease: 'power2.out', delay: 0.35 });
+  }, { scope: bodyRef });
 
   const flash = (kind: typeof saved): void => {
     setSaved(kind);
@@ -105,13 +112,13 @@ export function SettingsModal({ state, dispatch, onClose }: SettingsModalProps):
 
   return (
     <Modal ariaLabel="設定" maxWidth={640} onClose={onClose}>
-      <div style={{ padding: 28 }}>
+      <div ref={bodyRef} style={{ padding: 28 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <h2 style={{ fontSize: 22, color: 'var(--text-primary)', margin: 0 }}>設定</h2>
           <button aria-label="關閉" onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 18, lineHeight: 1 }} type="button">✕</button>
         </div>
 
-        <div style={{ marginBottom: 28 }}>
+        <div data-anim="settings-section" style={{ marginBottom: 28 }}>
           <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-primary)' }}>Anthropic API Key</div>
           <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 12, lineHeight: 1.6 }}>
             前往 <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand)' }}>console.anthropic.com</a> · Settings → API Keys → Create Key。Key 存在你瀏覽器 localStorage，不會外洩。每場分析約消耗 NT$1–3。
@@ -143,7 +150,7 @@ export function SettingsModal({ state, dispatch, onClose }: SettingsModalProps):
           </div>
         </div>
 
-        <div style={{ marginBottom: 28 }}>
+        <div data-anim="settings-section" style={{ marginBottom: 28 }}>
           <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6, color: 'var(--text-primary)' }}>資料管理</div>
           <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 12, lineHeight: 1.6 }}>
             目前 {state.matches.length} 場分析、{state.bets.length} 筆 bets。{exportHint}
