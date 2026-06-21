@@ -81,12 +81,12 @@ export function StatsView(props: StatsViewProps): JSX.Element {
 
       <Card style={{ marginBottom: 24 }}>
         <SectionLabel>P/L 累計曲線</SectionLabel>
-        {pnlSeries.length === 0 ? <EmptyState text="尚無已結算下注可繪製損益曲線" /> : <PnlChart data={pnlSeries} />}
+        {pnlSeries.length < 2 ? <EmptyState text="累積 2 筆以上結算後顯示曲線" /> : <PnlChart data={pnlSeries} />}
       </Card>
 
       <Card>
         <SectionLabel>校準圖 AI估計勝率 對 實際命中率</SectionLabel>
-        {calibration.length === 0 ? <EmptyState text="尚無勝負結果可計算校準分布" /> : <CalibrationChart data={calibration} />}
+        {calibration.length < 3 ? <EmptyState text="需要至少 3 個機率區間的資料才能畫校準圖" /> : <CalibrationChart data={calibration} />}
         <p style={{ color: 'var(--text-tertiary)', fontSize: 12, lineHeight: 1.7, margin: '12px 0 0' }}>
           圓點越接近斜線，代表AI估計勝率與實際命中率越一致；圓點大小代表該區間樣本數。
         </p>
