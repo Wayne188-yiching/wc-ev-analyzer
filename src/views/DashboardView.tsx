@@ -14,6 +14,7 @@ export interface DashboardViewProps {
   onOpenAnalysisNew: () => void;
   onOpenAnalysisView: (matchId: string) => void;
   onOpenResultEntry: (matchId: string) => void;
+  onOpenParlayBuilder: () => void;
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
@@ -55,7 +56,7 @@ function PendingMatchRow({ match, bets, onClick }: { match: Match; bets: Bet[]; 
   );
 }
 
-export function DashboardView({ state, onOpenAnalysisNew, onOpenAnalysisView, onOpenResultEntry }: DashboardViewProps): JSX.Element {
+export function DashboardView({ state, onOpenAnalysisNew, onOpenAnalysisView, onOpenResultEntry, onOpenParlayBuilder }: DashboardViewProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const data = useMemo(() => {
@@ -106,9 +107,16 @@ export function DashboardView({ state, onOpenAnalysisNew, onOpenAnalysisView, on
           <KpiCard label="待錄結果" counter={{ to: data.pending.length, format: (n) => Math.round(n).toString() }} sub={data.pending.length > 0 ? '需要輸入比分結算' : '沒有待處理比賽'} tone={data.pending.length > 0 ? 'fair' : 'neutral'} />
         </div>
       </div>
-      <button data-anim="new-analysis-btn" aria-label="新增分析" onClick={onOpenAnalysisNew} onMouseEnter={(event) => { event.currentTarget.style.opacity = '0.85'; }} onMouseLeave={(event) => { event.currentTarget.style.opacity = ''; }} style={{ width: '100%', padding: 18, background: 'var(--bg-surface)', border: '1px dashed var(--border-focus)', borderRadius: 'var(--radius-card)', color: 'var(--text-primary)', fontSize: 14, fontWeight: 500, cursor: 'pointer', marginBottom: 32, fontFamily: 'inherit', transition: 'opacity var(--duration-fade) var(--easing-base)' }} type="button">
-        <span style={{ color: 'var(--brand)', fontSize: 16, marginRight: 8 }}>+</span>新增分析（上傳賠率截圖）
-      </button>
+      <div data-anim="new-analysis-btn" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 32 }}>
+        <button aria-label="新增分析" onClick={onOpenAnalysisNew} onMouseEnter={(event) => { event.currentTarget.style.opacity = '0.85'; }} onMouseLeave={(event) => { event.currentTarget.style.opacity = ''; }} style={{ width: '100%', padding: 18, background: 'var(--bg-surface)', border: '1px dashed var(--border-focus)', borderRadius: 'var(--radius-card)', color: 'var(--text-primary)', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'opacity var(--duration-fade) var(--easing-base)' }} type="button">
+          <span style={{ color: 'var(--brand)', fontSize: 16, marginRight: 8 }}>+</span>新增分析（上傳賠率截圖）
+        </button>
+        {state.bets.filter((b) => b.result === null).length >= 2 && (
+          <button aria-label="組合串關" onClick={onOpenParlayBuilder} onMouseEnter={(event) => { event.currentTarget.style.opacity = '0.85'; }} onMouseLeave={(event) => { event.currentTarget.style.opacity = ''; }} style={{ width: '100%', padding: 12, background: 'transparent', border: '1px dashed var(--border-default)', borderRadius: 'var(--radius-card)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'opacity var(--duration-fade) var(--easing-base)' }} type="button">
+            <span style={{ color: 'var(--text-tertiary)', marginRight: 6 }}>+</span>組合串關（從現有 bets 挑 2–4 筆）
+          </button>
+        )}
+      </div>
       {data.pending.length > 0 && (
         <div style={{ marginBottom: 32 }}>
           <SectionLabel>待錄入結果 · {data.pending.length}</SectionLabel>

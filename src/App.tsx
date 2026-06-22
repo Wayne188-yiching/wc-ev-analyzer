@@ -7,6 +7,7 @@ import { StatsView } from './views/StatsView';
 import { AnalysisDetailModal } from './views/AnalysisDetailModal';
 import { ResultEntryModal } from './views/ResultEntryModal';
 import { SettingsModal } from './views/SettingsModal';
+import { ParlayBuilderModal } from './views/ParlayBuilderModal';
 
 type Tab = 'dashboard' | 'history' | 'stats';
 type AnalysisModalState =
@@ -20,10 +21,12 @@ export default function App(): JSX.Element {
   const [analysisModal, setAnalysisModal] = useState<AnalysisModalState>(null);
   const [resultModalId, setResultModalId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
+  const [parlayBuilderOpen, setParlayBuilderOpen] = useState<boolean>(false);
 
   const closeAnalysisModal = useCallback(() => setAnalysisModal(null), []);
   const closeResultModal = useCallback(() => setResultModalId(null), []);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
+  const closeParlayBuilder = useCallback(() => setParlayBuilderOpen(false), []);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-base)' }}>
@@ -42,6 +45,7 @@ export default function App(): JSX.Element {
             onOpenAnalysisNew={() => setAnalysisModal({ mode: 'new', matchId: null })}
             onOpenAnalysisView={(id) => setAnalysisModal({ mode: 'view', matchId: id })}
             onOpenResultEntry={(id) => setResultModalId(id)}
+            onOpenParlayBuilder={() => setParlayBuilderOpen(true)}
           />
         )}
         {tab === 'history' && (
@@ -75,6 +79,13 @@ export default function App(): JSX.Element {
           state={state}
           dispatch={dispatch}
           onClose={closeSettings}
+        />
+      )}
+      {parlayBuilderOpen && (
+        <ParlayBuilderModal
+          state={state}
+          dispatch={dispatch}
+          onClose={closeParlayBuilder}
         />
       )}
     </div>
