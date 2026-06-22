@@ -3,7 +3,7 @@ import { Card } from '../components/Card';
 import { KpiCard } from '../components/KpiCard';
 import { SectionLabel } from '../components/SectionLabel';
 import { formatNT, formatPct } from '../lib/format';
-import type { AppState, Bet } from '../types';
+import type { AppState, Bet, BetResult } from '../types';
 
 export interface StatsViewProps { state: AppState; }
 
@@ -84,14 +84,101 @@ export function StatsView(props: StatsViewProps): JSX.Element {
         {pnlSeries.length < 2 ? <EmptyState text="累積 2 筆以上結算後顯示曲線" /> : <PnlChart data={pnlSeries} />}
       </Card>
 
-      <Card>
+      <Card style={{ marginBottom: 24 }}>
         <SectionLabel>校準圖 AI估計勝率 對 實際命中率</SectionLabel>
         {calibration.length < 3 ? <EmptyState text="需要至少 3 個機率區間的資料才能畫校準圖" /> : <CalibrationChart data={calibration} />}
         <p style={{ color: 'var(--text-tertiary)', fontSize: 12, lineHeight: 1.7, margin: '12px 0 0' }}>
           圓點越接近斜線，代表AI估計勝率與實際命中率越一致；圓點大小代表該區間樣本數。
         </p>
       </Card>
+
+      {state.parlays.length > 0 && <ParlayVsSingleSection state={state} />}
     </div>
+  );
+}
+
+interface ChannelStat {
+  label: string;
+  totalCount: number;
+  settledCount: number;
+  pendingCount: number;
+  winCount: number;
+  winRate: number;
+  totalStaked: number;
+  totalPnL: number;
+  roi: number;
+}
+
+function computeChannelStat<T extends { result: BetResult | null; pnl: number | null; stakeNT: number }>(
+  label: string,
+  items: T[],
+): ChannelStat {
+  const settled = items.filter((x) => x.result === 'win' || x.result === 'lose');
+  const wins = settled.filter((x) => x.result === 'win').length;
+  const totalStaked = settled.reduce((s, x) => s + x.stakeNT, 0);
+  const totalPnL = items.reduce((s, x) => s + (x.pnl ?? 0), 0);
+  return {
+    label,
+    totalCount: items.length,
+    settledCount: settled.length,
+    pendingCount: items.filter((x) => x.result === null).length,
+    winCount: wins,
+    winRate: settled.length > 0 ? (wins / settled.length) * 100 : 0,
+    totalStaked,
+    totalPnL,
+    roi: totalStaked > 0 ? (totalPnL / totalStaked) * 100 : 0,
+  };
+}
+
+function ChannelStatCard({ stat }: { stat: ChannelStat }): JSX.Element {
+  const pnlColor = stat.totalPnL > 0 ? 'var(--positive)' : stat.totalPnL < 0 ? 'var(--negative)' : 'var(--text-tertiary)';
+  const roiColor = stat.roi > 0 ? 'var(--positive)' : stat.roi < 0 ? 'var(--negative)' : 'var(--text-tertiary)';
+  return (
+    <Card>
+      <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500, marginBottom: 12 }}>{stat.label}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, fontSize: 12 }}>
+        <div>
+          <div style={{ color: 'var(--text-tertiary)', marginBottom: 4 }}>總損益</div>
+          <div className="mono" style={{ fontSize: 18, fontWeight: 600, color: pnlColor }}>{formatNT(stat.totalPnL, { signed: true })}</div>
+        </div>
+        <div>
+          <div style={{ color: 'var(--text-tertiary)', marginBottom: 4 }}>ROI</div>
+          <div className="mono" style={{ fontSize: 18, fontWeight: 600, color: roiColor }}>{formatPct(stat.roi, 2)}</div>
+        </div>
+        <div>
+          <div style={{ color: 'var(--text-tertiary)', marginBottom: 4 }}>命中率</div>
+          <div className="mono" style={{ fontSize: 18, fontWeight: 600, color: 'var(--text-numeric)' }}>{formatPct(stat.winRate, 1)}</div>
+        </div>
+        <div>
+          <div style={{ color: 'var(--text-tertiary)', marginBottom: 4 }}>結算 / 待結算</div>
+          <div className="mono" style={{ fontSize: 18, fontWeight: 600, color: 'var(--text-numeric)' }}>{stat.settledCount} / {stat.pendingCount}</div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function ParlayVsSingleSection({ state }: { state: AppState }): JSX.Element {
+  const singleStat = computeChannelStat('單關', state.bets);
+  const parlayStat = computeChannelStat('串關', state.parlays);
+  const comparison = singleStat.roi - parlayStat.roi;
+  return (
+    <Card>
+      <SectionLabel>串關 vs 單關</SectionLabel>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12, marginBottom: 12 }}>
+        <ChannelStatCard stat={singleStat} />
+        <ChannelStatCard stat={parlayStat} />
+      </div>
+      {singleStat.settledCount > 0 && parlayStat.settledCount > 0 && (
+        <div style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
+          {comparison > 5
+            ? `單關 ROI 高出 ${comparison.toFixed(1)} 個百分點，串關拖累整體表現 — 紀律提醒：減少串關頻率。`
+            : comparison < -5
+              ? `串關 ROI 反而高出 ${Math.abs(comparison).toFixed(1)} 個百分點 — 樣本可能仍小，繼續觀察。串關抽水率本質上偏高，長期難以維持。`
+              : `兩通道 ROI 接近 (${comparison >= 0 ? '+' : ''}${comparison.toFixed(1)} pp)，樣本仍不足以下結論。`}
+        </div>
+      )}
+    </Card>
   );
 }
 
