@@ -35,6 +35,10 @@ lerna-debug.log*
 # Local GitHub CLI credentials
 .gh-cli/
 
+# Local sharing tools and runtime state
+.tools/
+.runtime/
+
 # Test coverage
 coverage/
 *.lcov
