@@ -7,6 +7,7 @@ export const DEFAULT_STATE: AppState = {
   bankroll: 10000,
   matches: [],
   bets: [],
+  parlays: [],
   lastExport: null,
 };
 

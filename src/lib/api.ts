@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import type { AnalysisResult } from '../types';
-import { SYSTEM_PROMPT } from './system-prompt';
+import type { AnalysisResult, EvVerdict, ParlayAnalysisResult, ProbRange } from '../types';
+import { SYSTEM_PROMPT, PARLAY_SYSTEM_PROMPT } from './system-prompt';
 
 export interface AnalyzeImage {
   type: string;
@@ -59,6 +59,47 @@ const AnalysisResultSchema = z.object({
   preMatchChecks: z.array(z.string()),
   summary: z.string(),
 });
+
+const ParlayLegOutputSchema = z.object({
+  market: z.string(),
+  selection: z.string(),
+  odds: z.number(),
+  impliedProb: z.number(),
+  estimatedProb: ProbRangeSchema,
+  edge: z.number(),
+  verdict: VerdictSchema,
+});
+
+const ParlayCorrelationSchema = z.object({
+  legs: z.tuple([z.number(), z.number()]),
+  type: z.enum(['positive', 'negative', 'none']),
+  magnitude: z.enum(['strong', 'moderate', 'weak']),
+  reason: z.string(),
+});
+
+const ParlayAnalysisResultSchema = z.object({
+  legs: z.array(ParlayLegOutputSchema),
+  combined: z.object({
+    odds: z.number(),
+    impliedProb: z.number(),
+    estimatedProb: ProbRangeSchema,
+    edge: z.number(),
+    vigPct: z.number(),
+  }),
+  correlations: z.array(ParlayCorrelationSchema),
+  verdict: VerdictSchema,
+  warnings: z.array(z.string()),
+  summary: z.string(),
+});
+
+type _ParlaySchemaMatches =
+  z.infer<typeof ParlayAnalysisResultSchema> extends ParlayAnalysisResult
+    ? ParlayAnalysisResult extends z.infer<typeof ParlayAnalysisResultSchema>
+      ? true
+      : false
+    : false;
+const _parlay_drift_check: _ParlaySchemaMatches = true;
+void _parlay_drift_check;
 
 const AiErrorSchema = z.object({ error: z.string() });
 
@@ -156,6 +197,96 @@ export async function analyzeMatch(
       .slice(0, 3)
       .map((i) => `${i.path.map(String).join('.')}: ${i.message}`)
       .join('; ');
+    throw new Error(`AI 回應格式不符：${issues}`);
+  }
+  return result.data;
+}
+
+export interface ParlayLegInput {
+  matchTeamA: string;
+  matchTeamB: string;
+  market: string;
+  selection: string;
+  odds: number;
+  impliedProb: number;
+  aiEstimatedProb: ProbRange;
+  aiVerdict: EvVerdict;
+  aiEdge: number;
+}
+
+export async function analyzeParlay(
+  apiKey: string,
+  legs: ParlayLegInput[],
+): Promise<ParlayAnalysisResult> {
+  if (!apiKey) throw new Error('請先在 Settings 設定 API Key');
+  if (legs.length < 2) throw new Error('串關至少需要 2 個 legs');
+
+  const userText = `分析以下串關，共 ${legs.length} legs：
+
+${legs
+  .map(
+    (l, i) => `Leg ${i + 1}: ${l.matchTeamA} vs ${l.matchTeamB}
+- 玩法: ${l.market} · ${l.selection}
+- 賠率: ${l.odds.toFixed(2)}
+- 隱含勝率: ${l.impliedProb.toFixed(1)}%
+- AI 估計勝率: ${l.aiEstimatedProb.min}-${l.aiEstimatedProb.max}%
+- 單關 verdict: ${l.aiVerdict} (edge ${l.aiEdge.toFixed(1)}%)`,
+  )
+  .join('\n\n')}
+
+請依系統指示分析這個串關組合，回純 JSON。`;
+
+  let response: Response;
+  try {
+    response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 4096,
+        temperature: 0.3,
+        system: PARLAY_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: userText }],
+      }),
+    });
+  } catch {
+    throw new Error('網路錯誤或 CORS 被擋，請確認連線');
+  }
+
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('API Key 無效，請至 Settings 重新設定');
+    if (response.status === 429) throw new Error('API 額度用完或限流');
+    let msg = `API ${response.status}`;
+    try {
+      const j = (await response.json()) as { error?: { message?: string } };
+      if (j?.error?.message) msg += ': ' + j.error.message;
+    } catch { /* non-JSON body */ }
+    throw new Error(msg);
+  }
+
+  const data = (await response.json()) as { content: Array<{ type: string; text?: string }> };
+  const text = data.content.filter((c) => c.type === 'text').map((c) => c.text ?? '').join('\n');
+  let cleaned = text.replace(/```json|```/g, '').trim();
+  const fi = cleaned.indexOf('{');
+  const li = cleaned.lastIndexOf('}');
+  if (fi >= 0 && li > fi) cleaned = cleaned.substring(fi, li + 1);
+
+  let parsed: unknown;
+  try { parsed = JSON.parse(cleaned); } catch {
+    throw new Error('AI 回應無法解析為 JSON，請重新分析');
+  }
+
+  const aiErr = AiErrorSchema.safeParse(parsed);
+  if (aiErr.success) throw new Error(`AI 拒絕分析：${aiErr.data.error}`);
+
+  const result = ParlayAnalysisResultSchema.safeParse(parsed);
+  if (!result.success) {
+    const issues = result.error.issues.slice(0, 3).map((i) => `${i.path.map(String).join('.')}: ${i.message}`).join('; ');
     throw new Error(`AI 回應格式不符：${issues}`);
   }
   return result.data;

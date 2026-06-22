@@ -147,10 +147,75 @@ export interface Bet {
  * lastExport is an ISO timestamp set by the export action; used to nag the
  * user when stale.
  */
+/**
+ * AI analysis snapshot for one parlay (a combination of multiple bets).
+ * Returned by api.ts/analyzeParlay; persisted verbatim inside Parlay.aiAnalysis.
+ */
+export interface ParlayAnalysisResult {
+  legs: Array<{
+    market: string;
+    selection: string;
+    odds: number;
+    impliedProb: number;
+    estimatedProb: ProbRange;
+    edge: number;
+    verdict: EvVerdict;
+  }>;
+  combined: {
+    odds: number;
+    impliedProb: number;
+    estimatedProb: ProbRange;
+    edge: number;
+    vigPct: number;
+  };
+  correlations: Array<{
+    legs: [number, number];
+    type: 'positive' | 'negative' | 'none';
+    magnitude: 'strong' | 'moderate' | 'weak';
+    reason: string;
+  }>;
+  verdict: EvVerdict;
+  warnings: string[];
+  summary: string;
+}
+
+/**
+ * A stored parlay record. Composed from 2-N existing Bet ids (legBetIds).
+ *
+ * Resolution invariants:
+ *  - All legs must be in state.bets; if any is missing, result === null
+ *  - result === null while any leg's bet.result is null
+ *  - result === 'lose' if any leg's bet.result === 'lose'
+ *  - result === 'void' if ALL legs are 'void'
+ *  - result === 'win'  if no legs lose AND at least one leg wins
+ *    (void legs collapse to odds=1.0, reducing combined payout)
+ *
+ * combinedOdds is the cached product of leg odds at parlay creation. Stored to
+ * survive bet edits; on resolution, effectiveOdds is recomputed from current
+ * leg results (voids → 1.0).
+ */
+export interface Parlay {
+  id: string;
+  legBetIds: string[];
+  combinedOdds: number;
+  combinedImpliedProb: number;
+  combinedEstimatedProb: ProbRange;
+  combinedEdge: number;
+  aiVerdict: EvVerdict;
+  aiAnalysis: ParlayAnalysisResult;
+  stakePct: number;
+  stakeNT: number;
+  result: BetResult;
+  pnl: number | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
 export interface AppState {
   apiKey: string;
   bankroll: number;
   matches: Match[];
   bets: Bet[];
+  parlays: Parlay[];
   lastExport: string | null;
 }

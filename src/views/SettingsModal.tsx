@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import type { CSSProperties, Dispatch } from 'react';
 import { Modal } from '../components/Modal';
 import { Button } from '../components/Button';
-import type { AppState, Match, Bet } from '../types';
+import type { AppState, Match, Bet, Parlay } from '../types';
 import type { AppAction } from '../hooks/useAppState';
 import { gsap, useGSAP, prefersReducedMotion } from '../lib/motion';
 
@@ -12,7 +12,7 @@ export interface SettingsModalProps {
   onClose: () => void;
 }
 
-interface ImportPayload { matches: Match[]; bets: Bet[]; bankroll?: number; }
+interface ImportPayload { matches: Match[]; bets: Bet[]; parlays?: Parlay[]; bankroll?: number; }
 
 function todayISO(): string {
   const d = new Date();
@@ -60,7 +60,7 @@ export function SettingsModal({ state, dispatch, onClose }: SettingsModalProps):
   };
 
   const handleExport = (): void => {
-    const payload = { matches: state.matches, bets: state.bets, bankroll: state.bankroll, exportedAt: new Date().toISOString() };
+    const payload = { matches: state.matches, bets: state.bets, parlays: state.parlays, bankroll: state.bankroll, exportedAt: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -84,7 +84,7 @@ export function SettingsModal({ state, dispatch, onClose }: SettingsModalProps):
         if (!isImportPayload(parsed)) throw new Error('JSON 格式錯誤：缺少 matches 或 bets');
         const summary = `匯入會覆蓋目前資料：\n${state.matches.length} → ${parsed.matches.length} 場\n${state.bets.length} → ${parsed.bets.length} 筆\n\n確定？`;
         if (!window.confirm(summary)) return;
-        dispatch({ type: 'IMPORT', payload: { matches: parsed.matches, bets: parsed.bets, bankroll: parsed.bankroll } });
+        dispatch({ type: 'IMPORT', payload: { matches: parsed.matches, bets: parsed.bets, parlays: parsed.parlays, bankroll: parsed.bankroll } });
         flash('import');
       } catch (err) {
         window.alert('匯入失敗：' + (err instanceof Error ? err.message : String(err)));

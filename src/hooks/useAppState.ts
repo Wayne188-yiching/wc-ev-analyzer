@@ -1,7 +1,8 @@
 import { useReducer, useEffect } from 'react';
 import type { Dispatch } from 'react';
-import type { AppState, Match, Bet, BetResult } from '../types';
+import type { AppState, Match, Bet, BetResult, Parlay } from '../types';
 import { loadState, saveState, DEFAULT_STATE } from '../lib/storage';
+import { resolveParlay } from '../lib/parlay';
 
 export type AppAction =
   | { type: 'SET_API_KEY'; payload: string }
@@ -25,9 +26,19 @@ export type AppAction =
       };
     }
   | { type: 'DELETE_MATCH'; payload: { matchId: string } }
-  | { type: 'IMPORT'; payload: { matches: Match[]; bets: Bet[]; bankroll?: number } }
+  | { type: 'ADD_PARLAY'; payload: Parlay }
+  | { type: 'DELETE_PARLAY'; payload: { parlayId: string } }
+  | { type: 'IMPORT'; payload: { matches: Match[]; bets: Bet[]; parlays?: Parlay[]; bankroll?: number } }
   | { type: 'SET_LAST_EXPORT'; payload: string }
   | { type: 'RESET' };
+
+function syncParlays(parlays: Parlay[], bets: Bet[], resolvedAt: string): Parlay[] {
+  return parlays.map((p) => {
+    const r = resolveParlay(p, bets);
+    if (r.result === p.result && r.pnl === p.pnl) return p;
+    return { ...p, result: r.result, pnl: r.pnl, resolvedAt: r.result === null ? null : (p.resolvedAt ?? resolvedAt) };
+  });
+}
 
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
@@ -64,24 +75,38 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         const u = updateById.get(b.id);
         return u ? { ...b, result: u.result, pnl: u.pnl, resolvedAt: u.resolvedAt } : b;
       });
-      return { ...state, matches, bets };
+      // Cascade: re-resolve parlays whose legs include any of these bets.
+      const parlays = syncParlays(state.parlays, bets, resolvedAt);
+      return { ...state, matches, bets, parlays };
     }
 
     case 'DELETE_MATCH': {
       const { matchId } = action.payload;
+      const bets = state.bets.filter((b) => b.matchId !== matchId);
+      // Drop parlays whose legs include any deleted bet (orphan).
+      const deletedBetIds = new Set(state.bets.filter((b) => b.matchId === matchId).map((b) => b.id));
+      const parlays = state.parlays.filter((p) => !p.legBetIds.some((id) => deletedBetIds.has(id)));
       return {
         ...state,
         matches: state.matches.filter((m) => m.id !== matchId),
-        bets: state.bets.filter((b) => b.matchId !== matchId),
+        bets,
+        parlays,
       };
     }
 
+    case 'ADD_PARLAY':
+      return { ...state, parlays: [...state.parlays, action.payload] };
+
+    case 'DELETE_PARLAY':
+      return { ...state, parlays: state.parlays.filter((p) => p.id !== action.payload.parlayId) };
+
     case 'IMPORT': {
-      const { matches, bets, bankroll } = action.payload;
+      const { matches, bets, parlays, bankroll } = action.payload;
       return {
         ...state,
         matches,
         bets,
+        parlays: parlays ?? [],
         bankroll: bankroll ?? state.bankroll,
       };
     }
