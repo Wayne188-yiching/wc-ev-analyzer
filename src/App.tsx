@@ -46,6 +46,7 @@ export default function App(): JSX.Element {
             onOpenAnalysisView={(id) => setAnalysisModal({ mode: 'view', matchId: id })}
             onOpenResultEntry={(id) => setResultModalId(id)}
             onOpenParlayBuilder={() => setParlayBuilderOpen(true)}
+            onDeleteParlay={(id) => dispatch({ type: 'DELETE_PARLAY', payload: { parlayId: id } })}
           />
         )}
         {tab === 'history' && (

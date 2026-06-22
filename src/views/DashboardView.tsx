@@ -5,6 +5,7 @@ import { Button } from '../components/Button';
 import { KpiCard } from '../components/KpiCard';
 import { SectionLabel } from '../components/SectionLabel';
 import { AnalysisCard } from '../components/AnalysisCard';
+import { ParlayCard } from '../components/ParlayCard';
 import { formatNT, formatPct } from '../lib/format';
 import { computePnL } from '../lib/resolve-bet';
 import { gsap, useGSAP, SplitText, prefersReducedMotion } from '../lib/motion';
@@ -15,6 +16,7 @@ export interface DashboardViewProps {
   onOpenAnalysisView: (matchId: string) => void;
   onOpenResultEntry: (matchId: string) => void;
   onOpenParlayBuilder: () => void;
+  onDeleteParlay: (parlayId: string) => void;
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
@@ -56,7 +58,7 @@ function PendingMatchRow({ match, bets, onClick }: { match: Match; bets: Bet[]; 
   );
 }
 
-export function DashboardView({ state, onOpenAnalysisNew, onOpenAnalysisView, onOpenResultEntry, onOpenParlayBuilder }: DashboardViewProps): JSX.Element {
+export function DashboardView({ state, onOpenAnalysisNew, onOpenAnalysisView, onOpenResultEntry, onOpenParlayBuilder, onDeleteParlay }: DashboardViewProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const data = useMemo(() => {
@@ -121,6 +123,16 @@ export function DashboardView({ state, onOpenAnalysisNew, onOpenAnalysisView, on
         <div style={{ marginBottom: 32 }}>
           <SectionLabel>待錄入結果 · {data.pending.length}</SectionLabel>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{data.pending.map((match) => <PendingMatchRow key={match.id} match={match} bets={state.bets.filter((bet) => bet.matchId === match.id)} onClick={() => { onOpenResultEntry(match.id); }} />)}</div>
+        </div>
+      )}
+      {state.parlays.length > 0 && (
+        <div style={{ marginBottom: 32 }}>
+          <SectionLabel>串關 · {state.parlays.length}</SectionLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {state.parlays.map((p) => (
+              <div key={p.id} data-anim="list-item"><ParlayCard parlay={p} state={state} onDelete={onDeleteParlay} /></div>
+            ))}
+          </div>
         </div>
       )}
       <SectionLabel>今日分析 · {data.todayMatches.length}</SectionLabel>
