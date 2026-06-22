@@ -8,9 +8,10 @@ export interface HistoryViewProps {
   state: AppState;
   onOpenAnalysisView: (matchId: string) => void;
   onOpenResultEntry: (matchId: string) => void;
+  onDeleteMatch: (matchId: string) => void;
 }
 
-export function HistoryView({ state, onOpenAnalysisView, onOpenResultEntry }: HistoryViewProps): JSX.Element {
+export function HistoryView({ state, onOpenAnalysisView, onOpenResultEntry, onDeleteMatch }: HistoryViewProps): JSX.Element {
   const grouped = useMemo(() => {
     const map = new Map<string, Match[]>();
     state.matches.forEach((m) => {
@@ -58,6 +59,7 @@ export function HistoryView({ state, onOpenAnalysisView, onOpenResultEntry }: Hi
                   bets={state.bets.filter((b) => b.matchId === m.id)}
                   onView={() => onOpenAnalysisView(m.id)}
                   onResult={() => onOpenResultEntry(m.id)}
+                  onDelete={onDeleteMatch}
                 />
               ))}
             </div>

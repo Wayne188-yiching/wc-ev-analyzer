@@ -5,7 +5,7 @@ import { Tag } from './Tag';
 import { EvBar } from './EvBar';
 import { formatNT } from '../lib/format';
 
-export interface AnalysisCardProps { match: Match; bets: Bet[]; onView: () => void; onResult: () => void; }
+export interface AnalysisCardProps { match: Match; bets: Bet[]; onView: () => void; onResult: () => void; onDelete?: (matchId: string) => void; }
 
 const resultMeta = {
   win: { label: '勝', color: 'var(--positive)' },
@@ -32,12 +32,22 @@ function BetMiniRow({ bet }: { bet: Bet }): JSX.Element {
   );
 }
 
-export function AnalysisCard({ match, bets, onView, onResult }: AnalysisCardProps): JSX.Element {
+export function AnalysisCard({ match, bets, onView, onResult, onDelete }: AnalysisCardProps): JSX.Element {
   const pnl = bets.reduce((sum, bet) => sum + (bet.pnl ?? 0), 0);
   const hasResult = match.fullScore !== null;
   const hasBets = bets.length > 0;
   const tone = hasResult ? (pnl > 0 ? 'positive' : pnl < 0 ? 'negative' : 'neutral') : hasBets ? 'fair' : 'neutral';
   const text = hasResult ? formatNT(pnl, { signed: true }) : hasBets ? '待開賽' : '未下注';
+  const handleDelete = (): void => {
+    if (!onDelete) return;
+    const lines = [
+      `確定刪除「${match.teamA} vs ${match.teamB}」？`,
+      hasBets ? `連同 ${bets.length} 筆 bets 一併刪除。` : null,
+      hasResult ? '這是已結算分析，刪除後歷史 P/L 統計會被影響。' : null,
+      '此動作無法復原。',
+    ].filter(Boolean).join('\n');
+    if (window.confirm(lines)) onDelete(match.id);
+  };
   return (
     <Card style={{ padding: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 12 }}>
@@ -51,9 +61,19 @@ export function AnalysisCard({ match, bets, onView, onResult }: AnalysisCardProp
         <Tag tone={tone}>{text}</Tag>
       </div>
       {hasBets && <div style={{ marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>{bets.map((bet) => <BetMiniRow key={bet.id} bet={bet} />)}</div>}
-      <div style={{ display: 'flex', flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-        <Button variant="ghost" size="sm" onClick={onView}>查看分析→</Button>
-        {!hasResult && hasBets && <Button variant="secondary" size="sm" onClick={onResult}>輸入比分</Button>}
+      <div style={{ display: 'flex', flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <Button variant="ghost" size="sm" onClick={onView}>查看分析→</Button>
+          {!hasResult && hasBets && <Button variant="secondary" size="sm" onClick={onResult}>輸入比分</Button>}
+        </div>
+        {onDelete && (
+          <button
+            aria-label={`刪除分析 ${match.teamA} vs ${match.teamB}`}
+            onClick={handleDelete}
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-tertiary)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', padding: '4px 8px' }}
+            type="button"
+          >刪除</button>
+        )}
       </div>
     </Card>
   );

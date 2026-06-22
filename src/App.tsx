@@ -47,6 +47,7 @@ export default function App(): JSX.Element {
             onOpenResultEntry={(id) => setResultModalId(id)}
             onOpenParlayBuilder={() => setParlayBuilderOpen(true)}
             onDeleteParlay={(id) => dispatch({ type: 'DELETE_PARLAY', payload: { parlayId: id } })}
+            onDeleteMatch={(id) => dispatch({ type: 'DELETE_MATCH', payload: { matchId: id } })}
           />
         )}
         {tab === 'history' && (
@@ -54,6 +55,7 @@ export default function App(): JSX.Element {
             state={state}
             onOpenAnalysisView={(id) => setAnalysisModal({ mode: 'view', matchId: id })}
             onOpenResultEntry={(id) => setResultModalId(id)}
+            onDeleteMatch={(id) => dispatch({ type: 'DELETE_MATCH', payload: { matchId: id } })}
           />
         )}
         {tab === 'stats' && <StatsView state={state} />}

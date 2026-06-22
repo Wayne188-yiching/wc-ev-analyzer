@@ -17,6 +17,7 @@ export interface DashboardViewProps {
   onOpenResultEntry: (matchId: string) => void;
   onOpenParlayBuilder: () => void;
   onDeleteParlay: (parlayId: string) => void;
+  onDeleteMatch: (matchId: string) => void;
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
@@ -58,7 +59,7 @@ function PendingMatchRow({ match, bets, onClick }: { match: Match; bets: Bet[]; 
   );
 }
 
-export function DashboardView({ state, onOpenAnalysisNew, onOpenAnalysisView, onOpenResultEntry, onOpenParlayBuilder, onDeleteParlay }: DashboardViewProps): JSX.Element {
+export function DashboardView({ state, onOpenAnalysisNew, onOpenAnalysisView, onOpenResultEntry, onOpenParlayBuilder, onDeleteParlay, onDeleteMatch }: DashboardViewProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const data = useMemo(() => {
@@ -142,7 +143,7 @@ export function DashboardView({ state, onOpenAnalysisNew, onOpenAnalysisView, on
           <div style={{ fontSize: 12 }}>點上方新增分析開始</div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{data.todayMatches.map((match) => <div key={match.id} data-anim="list-item"><AnalysisCard match={match} bets={state.bets.filter((bet) => bet.matchId === match.id)} onView={() => { onOpenAnalysisView(match.id); }} onResult={() => { onOpenResultEntry(match.id); }} /></div>)}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{data.todayMatches.map((match) => <div key={match.id} data-anim="list-item"><AnalysisCard match={match} bets={state.bets.filter((bet) => bet.matchId === match.id)} onView={() => { onOpenAnalysisView(match.id); }} onResult={() => { onOpenResultEntry(match.id); }} onDelete={onDeleteMatch} /></div>)}</div>
       )}
     </div>
   );
