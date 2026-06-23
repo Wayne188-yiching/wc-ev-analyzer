@@ -176,7 +176,10 @@ export async function analyzeMatch(
     throw new Error(msg);
   }
 
-  const data = (await response.json()) as { content: Array<{ type: string; text?: string }> };
+  const data = (await response.json()) as {
+    content: Array<{ type: string; text?: string }>;
+    stop_reason?: string;
+  };
   const text = data.content
     .filter((c) => c.type === 'text')
     .map((c) => c.text ?? '')
@@ -191,7 +194,10 @@ export async function analyzeMatch(
   try {
     parsed = JSON.parse(cleaned);
   } catch {
-    throw new Error('AI 回應無法解析為 JSON，請重新分析');
+    if (data.stop_reason === 'max_tokens') {
+      throw new Error('玩法太多導致 AI 回應被截斷。請減少截圖張數（建議一次 1-2 張）或分批分析。');
+    }
+    throw new Error('AI 回應無法解析為 JSON，請重新分析（若連續失敗，可能 Anthropic 服務不穩，稍後再試）');
   }
 
   const aiErr = AiErrorSchema.safeParse(parsed);
