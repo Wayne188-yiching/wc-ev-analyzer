@@ -164,6 +164,8 @@ export async function analyzeMatch(
   if (!response.ok) {
     if (response.status === 401) throw new Error('API Key 無效，請至 Settings 重新設定');
     if (response.status === 429) throw new Error('API 額度用完或限流，請至 console.anthropic.com 查看');
+    if (response.status === 529) throw new Error('Anthropic 伺服器忙碌中（過載），請稍等 10-30 秒後再按一次分析');
+    if (response.status >= 500) throw new Error(`Anthropic 伺服器錯誤（${response.status}），稍後重試`);
     let msg = `API ${response.status}`;
     try {
       const j = (await response.json()) as { error?: { message?: string } };
@@ -267,6 +269,8 @@ ${legs
   if (!response.ok) {
     if (response.status === 401) throw new Error('API Key 無效，請至 Settings 重新設定');
     if (response.status === 429) throw new Error('API 額度用完或限流');
+    if (response.status === 529) throw new Error('Anthropic 伺服器忙碌中（過載），請稍等 10-30 秒後再試');
+    if (response.status >= 500) throw new Error(`Anthropic 伺服器錯誤（${response.status}），稍後重試`);
     let msg = `API ${response.status}`;
     try {
       const j = (await response.json()) as { error?: { message?: string } };
