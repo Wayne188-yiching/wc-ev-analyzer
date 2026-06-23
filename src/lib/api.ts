@@ -55,6 +55,7 @@ const AnalysisResultSchema = z.object({
   analysis: z.array(AnalysisRowSchema),
   recommendations: z.array(RecommendationSchema),
   totalExposurePct: z.number(),
+  marketCount: z.number(),
   avoid: z.array(z.object({ bet: z.string(), reason: z.string() })),
   preMatchChecks: z.array(z.string()),
   summary: z.string(),
@@ -118,6 +119,7 @@ export async function analyzeMatch(
   apiKey: string,
   images: AnalyzeImage[],
   contextText: string,
+  expectedMarketCount?: number,
 ): Promise<AnalysisResult> {
   if (!apiKey) throw new Error('請先在 Settings 設定 API Key');
   if (images.length === 0) throw new Error('沒有可分析的圖片');
@@ -126,11 +128,15 @@ export async function analyzeMatch(
     type: 'image',
     source: { type: 'base64', media_type: img.type, data: img.data },
   }));
+  const countHint =
+    expectedMarketCount && expectedMarketCount > 0
+      ? `\n\n使用者指出這張截圖共有約 ${expectedMarketCount} 個玩法，請務必全部列出，不可省略。`
+      : '';
   content.push({
     type: 'text',
     text: `請分析以上台灣運彩賠率截圖（${images.length} 張）。${
       contextText ? '\n\n額外情報：' + contextText : ''
-    }\n\n依系統指示回傳純 JSON。`,
+    }${countHint}\n\n依系統指示回傳純 JSON，analysis 陣列必須涵蓋截圖中每一個玩法的每一個選項。`,
   });
 
   let response: Response;
@@ -145,7 +151,7 @@ export async function analyzeMatch(
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 4096,
+        max_tokens: 8192,
         temperature: 0.3,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content }],

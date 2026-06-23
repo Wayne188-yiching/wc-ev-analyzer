@@ -53,6 +53,7 @@ export function AnalysisDetailModal(props: AnalysisDetailModalProps): JSX.Elemen
   const existingBets = matchId ? state.bets.filter((b) => b.matchId === matchId) : [];
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [contextText, setContextText] = useState('');
+  const [expectedMarkets, setExpectedMarkets] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(existingMatch?.aiResult ?? null);
@@ -85,7 +86,13 @@ export function AnalysisDetailModal(props: AnalysisDetailModalProps): JSX.Elemen
     setAnalyzing(true);
     setError(null);
     try {
-      const result = await analyzeMatch(state.apiKey, images.map(({ type, data }) => ({ type, data })), contextText);
+      const expected = parseInt(expectedMarkets, 10);
+      const result = await analyzeMatch(
+        state.apiKey,
+        images.map(({ type, data }) => ({ type, data })),
+        contextText,
+        Number.isNaN(expected) ? undefined : expected,
+      );
       const next: Record<number, SelectionState> = {};
       result.analysis.forEach((row, i) => {
         if (row.verdict !== 'VALUE') return;
@@ -246,6 +253,11 @@ export function AnalysisDetailModal(props: AnalysisDetailModalProps): JSX.Elemen
               <label style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }} htmlFor="analysis-context">額外情報（選填）</label>
               <textarea id="analysis-context" value={contextText} onChange={(event) => setContextText(event.currentTarget.value)} placeholder="傷停 / 天氣 / 輪換等..." style={{ width: '100%', background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 10, fontSize: 12, resize: 'vertical', minHeight: 60, fontFamily: 'inherit', outline: 'none', color: 'var(--text-primary)', boxSizing: 'border-box' }} />
             </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }} htmlFor="expected-markets">截圖玩法數（選填，防漏列）</label>
+              <input id="expected-markets" className="mono" type="number" min={0} value={expectedMarkets} onChange={(event) => setExpectedMarkets(event.currentTarget.value)} placeholder="例如 12" style={{ width: 120, background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '8px 10px', fontSize: 12, fontFamily: 'inherit', outline: 'none', color: 'var(--text-primary)', boxSizing: 'border-box' }} />
+              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 4 }}>填入截圖裡的玩法總數，AI 漏列時會跳警告</div>
+            </div>
             {error && <div role="alert" style={{ background: 'var(--negative-soft)', border: '1px solid var(--negative)', borderRadius: 8, padding: 12, fontSize: 12, color: 'var(--negative)', marginBottom: 16 }}>{error}</div>}
             <Button disabled={analyzing || images.length === 0 || !state.apiKey} onClick={() => { void handleAnalyze(); }} size="lg" style={{ width: '100%', justifyContent: 'center' }} variant="primary">{analyzeLabel}</Button>
           </>
@@ -271,6 +283,15 @@ export function AnalysisDetailModal(props: AnalysisDetailModalProps): JSX.Elemen
               <StrengthBar teamA={result.match.teamA} teamB={result.match.teamB} ratingA={result.teamRatings.teamA} ratingB={result.teamRatings.teamB} />
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-default)', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{result.summary}</div>
             </Card>
+            {(() => {
+              const expected = parseInt(expectedMarkets, 10);
+              const shortfall = !Number.isNaN(expected) && expected > result.analysis.length;
+              return shortfall ? (
+                <div role="alert" style={{ background: 'var(--fair-soft)', border: '1px solid var(--fair)', color: 'var(--fair)', borderRadius: 8, padding: 12, fontSize: 12, marginBottom: 16 }}>
+                  ⚠ 你預期 {expected} 個玩法，但 AI 只分析了 {result.analysis.length} 個。可能漏列 — 建議重新分析，或換更清楚的截圖。
+                </div>
+              ) : null;
+            })()}
             <Card style={{ padding: 0, marginBottom: 16 }}>
               <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <SectionLabel>EV 分析表 · {result.analysis.length} 玩法</SectionLabel>

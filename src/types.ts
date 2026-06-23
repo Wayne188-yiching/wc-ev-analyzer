@@ -64,6 +64,8 @@ export interface AnalysisResult {
     reasoning: string;
   }>;
   totalExposurePct: number;
+  /** AI's self-reported count of analysed markets (= analysis.length). Cross-checked against the user's expected count to flag dropped markets. */
+  marketCount: number;
   avoid: Array<{ bet: string; reason: string }>;
   preMatchChecks: string[];
   summary: string;

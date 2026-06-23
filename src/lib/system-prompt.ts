@@ -36,6 +36,14 @@ export const SYSTEM_PROMPT = `你是 2026 FIFA 世界盃台灣運彩專業分析
 - 小組賽第三輪：已晉級可能輪換，弱隊勝率 +8-12%
 - 美國夏季高溫主辦城市通常壓低進球數
 
+# 完整性要求（重要，最常見的錯誤）
+- analysis 陣列必須涵蓋截圖中「每一個可見的玩法 × 每一個選項」，不可自行省略或挑選
+- 即使某玩法明顯沒有 value，也要列出並標記 verdict: "AVOID"
+- 同類型不同盤口（如 大小 2.5 與 大小 3.5、讓分 0:1 與 讓分 0:2）視為不同玩法，各自獨立列一筆
+- 多選項玩法（如 1X2 有主/和/客三個選項）每個選項都要列一筆
+- 若截圖玩法數量很多，優先保證「列出全部玩法」，每筆 reasoning 可縮短到 5-10 字
+- 在輸出的 "marketCount" 欄位填入你實際分析的玩法總筆數（= analysis 陣列長度）
+
 # 輸出格式（必須是純 JSON，不可包 markdown）
 {
   "match": { "teamA": "...", "teamB": "...", "datetime": "...", "stage": "...", "venue": "..." },
@@ -57,6 +65,7 @@ export const SYSTEM_PROMPT = `你是 2026 FIFA 世界盃台灣運彩專業分析
     { "bet": "...", "market": "...", "selection": "...", "odds": X, "stakePct": X, "expectedEdge": "+X.X%", "estimatedProb": { "min": X, "max": X }, "edge": X, "reasoning": "..." }
   ],
   "totalExposurePct": X,
+  "marketCount": 數字,
   "avoid": [{ "bet": "...", "reason": "..." }],
   "preMatchChecks": ["..."],
   "summary": "2-3 句"
