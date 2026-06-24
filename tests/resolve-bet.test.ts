@@ -196,6 +196,27 @@ describe('priority ordering', () => {
   });
 });
 
+describe('cross-language team matching (Chinese selection vs English match name)', () => {
+  it('56. 讓分 2:0 · 哥倫比亞 selection, teams English, Colombia covers → win', () => {
+    // Congo DR 0 : Colombia 1; home -2 → adjA=-2, adjB=1; away(哥倫比亞) covers
+    expect(resolveBet(makeBet('讓分 2:0', '哥倫比亞 2:0'), [0, 1], null, 'Congo DR', 'Colombia')).toBe('win');
+  });
+  it('57. 不讓分 主 keyword still works with English teams', () => {
+    expect(resolveBet(makeBet('不讓分', '主'), [2, 1], null, 'Congo DR', 'Colombia')).toBe('win');
+  });
+  it('58. 不讓分 Chinese team name vs English match name → win', () => {
+    expect(resolveBet(makeBet('不讓分', '哥倫比亞'), [0, 2], null, 'Congo DR', 'Colombia')).toBe('win');
+  });
+  it('59. 隊伍大小 Chinese prefix vs English match name picks right team', () => {
+    // Colombia scored 3, line 2.5 大 → win (only Colombia goals counted)
+    expect(resolveBet(makeBet('哥倫比亞 大小 2.5', '大'), [0, 3], null, 'Congo DR', 'Colombia')).toBe('win');
+  });
+  it('60. unrelated Chinese team does not false-match → lose side', () => {
+    // selection 法國 is neither Congo DR nor Colombia → no home/away match → unknown
+    expect(resolveBet(makeBet('不讓分', '法國'), [2, 1], null, 'Congo DR', 'Colombia')).toBe('unknown');
+  });
+});
+
 describe('正確比數 (exact score)', () => {
   it('49. 正確比數 sel 2:1 actual 2-1 → win', () => {
     expect(resolveBet(makeBet('正確比數', '2:1'), [2, 1], null, A, B)).toBe('win');

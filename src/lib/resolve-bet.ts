@@ -1,4 +1,5 @@
 import type { Bet, BetResult } from '../types';
+import { sameTeam } from './teams';
 
 export type ResolveBetResult = 'win' | 'lose' | 'void' | 'unknown';
 
@@ -38,8 +39,8 @@ export function resolveBet(
   const market = (bet.market || '').trim();
   const sel = (bet.selection || '').trim();
 
-  const isHome = (s: string) => s.includes('主') || s === teamA || s.includes(teamA);
-  const isAway = (s: string) => s.includes('客') || s === teamB || s.includes(teamB);
+  const isHome = (s: string) => s.includes('主') || sameTeam(s, teamA);
+  const isAway = (s: string) => s.includes('客') || sameTeam(s, teamB);
   const isDraw = (s: string) => s.includes('和') || s.toLowerCase().includes('draw');
 
   // 1X2 / 不讓分
@@ -67,8 +68,8 @@ export function resolveBet(
       const teamPrefix = market.replace(/大小.*$/, '').trim();
       let goals = total;
       if (teamPrefix && teamPrefix !== '[總分]' && teamPrefix !== '總分') {
-        if (teamPrefix.includes(teamA) || teamA.includes(teamPrefix)) goals = a;
-        else if (teamPrefix.includes(teamB) || teamB.includes(teamPrefix)) goals = b;
+        if (sameTeam(teamPrefix, teamA)) goals = a;
+        else if (sameTeam(teamPrefix, teamB)) goals = b;
       }
       if (sel.includes('大')) return goals > line ? 'win' : 'lose';
       if (sel.includes('小')) return goals < line ? 'win' : 'lose';
