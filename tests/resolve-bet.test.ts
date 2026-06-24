@@ -195,3 +195,27 @@ describe('priority ordering', () => {
     expect(resolveBet(makeBet('半場大小 1.5', '大'), [3, 0], [0, 0], A, B)).toBe('lose');
   });
 });
+
+describe('正確比數 (exact score)', () => {
+  it('49. 正確比數 sel 2:1 actual 2-1 → win', () => {
+    expect(resolveBet(makeBet('正確比數', '2:1'), [2, 1], null, A, B)).toBe('win');
+  });
+  it('50. 正確比數 sel 2:1 actual 1-1 → lose', () => {
+    expect(resolveBet(makeBet('正確比數', '2:1'), [1, 1], null, A, B)).toBe('lose');
+  });
+  it('51. 正確比數 full-width colon sel 0：0 actual 0-0 → win', () => {
+    expect(resolveBet(makeBet('正確比數', '0：0'), [0, 0], null, A, B)).toBe('win');
+  });
+  it('52. 上半場正確比數 sel 0:2 halfScore 0-2 → win', () => {
+    expect(resolveBet(makeBet('上半場正確比數', '0:2'), [1, 3], [0, 2], A, B)).toBe('win');
+  });
+  it('53. 上半場正確比數 sel 0:2 halfScore 0-0 → lose', () => {
+    expect(resolveBet(makeBet('上半場正確比數', '0:2'), [0, 1], [0, 0], A, B)).toBe('lose');
+  });
+  it('54. 半場正確比數 with halfScore=null → unknown', () => {
+    expect(resolveBet(makeBet('半場正確比數', '1:0'), [2, 1], null, A, B)).toBe('unknown');
+  });
+  it('55. 正確比數 其他 → unknown (cannot resolve without full option list)', () => {
+    expect(resolveBet(makeBet('正確比數', '其他'), [4, 3], null, A, B)).toBe('unknown');
+  });
+});

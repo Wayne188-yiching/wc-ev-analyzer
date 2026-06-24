@@ -108,5 +108,25 @@ export function resolveBet(
     }
   }
 
+  // 正確比數 (exact score) — full match or first half. Score lives in selection (e.g. "2:1").
+  if (/正確比數|正确比数/.test(market)) {
+    // "其他比分" (any score outside the listed options) can't be resolved without the full option list.
+    if (/其他|其它/.test(sel)) return 'unknown';
+    const scoreM = sel.match(/(\d+)\s*[:：]\s*(\d+)/);
+    if (scoreM) {
+      const ta = parseInt(scoreM[1], 10);
+      const tb = parseInt(scoreM[2], 10);
+      const isHalf = /半場|半场|上半/.test(market);
+      if (isHalf) {
+        if (!halfScore) return 'unknown';
+        const ha = Number(halfScore[0]);
+        const hb = Number(halfScore[1]);
+        if (Number.isNaN(ha) || Number.isNaN(hb)) return 'unknown';
+        return ha === ta && hb === tb ? 'win' : 'lose';
+      }
+      return a === ta && b === tb ? 'win' : 'lose';
+    }
+  }
+
   return 'unknown';
 }
