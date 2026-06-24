@@ -151,7 +151,7 @@ export async function analyzeMatch(
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 8192,
+        max_tokens: 16384,
         temperature: 0.3,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content }],
