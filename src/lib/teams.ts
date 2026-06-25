@@ -53,6 +53,22 @@ const TEAM_ALIASES: string[][] = [
   ['剛果', '剛果民主共和國', 'congo', 'congodr', 'drcongo'],
   ['約旦', 'jordan'],
   ['古拉索', 'curacao', 'curaçao'],
+  ['波赫', '波士尼亞', '波黑', '波斯尼亞', 'bosnia', 'bosniaandherzegovina', 'bosniaherzegovina'],
+  ['迦納', '加納', 'ghana'],
+  ['象牙海岸', '科特迪瓦', 'ivorycoast', 'cotedivoire'],
+  ['埃及', 'egypt'],
+  ['阿爾及利亞', 'algeria'],
+  ['喀麥隆', 'cameroon'],
+  ['巴拿馬', 'panama'],
+  ['宏都拉斯', '洪都拉斯', 'honduras'],
+  ['哥斯大黎加', '哥斯達黎加', 'costarica'],
+  ['牙買加', 'jamaica'],
+  ['秘魯', 'peru'],
+  ['智利', 'chile'],
+  ['委內瑞拉', 'venezuela'],
+  ['沙烏地阿拉伯', 'saudi'],
+  ['伊拉克', 'iraq'],
+  ['阿聯', '阿拉伯聯合大公國', 'uae', 'unitedarabemirates'],
 ];
 
 function norm(s: string): string {

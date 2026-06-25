@@ -217,6 +217,43 @@ describe('cross-language team matching (Chinese selection vs English match name)
   });
 });
 
+describe('正確進球數 (exact goal count)', () => {
+  const QAT = 'Qatar';
+  const BOS = 'Bosnia and Herzegovina';
+  it('61. 波赫正確進球數 · 0, Bosnia scored 3 → lose', () => {
+    expect(resolveBet(makeBet('波赫正確進球數', '0'), [1, 3], null, QAT, BOS)).toBe('lose');
+  });
+  it('62. 波赫正確進球數 · 1, Bosnia scored 3 → lose', () => {
+    expect(resolveBet(makeBet('波赫正確進球數', '1'), [1, 3], null, QAT, BOS)).toBe('lose');
+  });
+  it('63. 波赫正確進球數 · 3, Bosnia scored 3 → win', () => {
+    expect(resolveBet(makeBet('波赫正確進球數', '3'), [1, 3], null, QAT, BOS)).toBe('win');
+  });
+  it('64. 總分正確進球數 · 4, total 1+3=4 → win', () => {
+    expect(resolveBet(makeBet('正確進球數', '4'), [1, 3], null, QAT, BOS)).toBe('win');
+  });
+  it('65. 正確進球數 · 3 或以上, total 4 → win (>=)', () => {
+    expect(resolveBet(makeBet('正確進球數', '3 或以上'), [1, 3], null, QAT, BOS)).toBe('win');
+  });
+});
+
+describe('combo markets (A/B AND)', () => {
+  const QAT = 'Qatar';
+  const BOS = 'Bosnia and Herzegovina';
+  it('66. 不讓分/兩隊是否都進球 · 和局/否, score 1-3 → lose (not draw)', () => {
+    expect(resolveBet(makeBet('不讓分/兩隊是否都進球', '和局/否'), [1, 3], null, QAT, BOS)).toBe('lose');
+  });
+  it('67. 不讓分/兩隊都進球 · 客/是, away wins + both score → win', () => {
+    expect(resolveBet(makeBet('不讓分/兩隊都進球', '客/是'), [1, 3], null, QAT, BOS)).toBe('win');
+  });
+  it('68. 不讓分/兩隊都進球 · 主/是, home lost → lose', () => {
+    expect(resolveBet(makeBet('不讓分/兩隊都進球', '主/是'), [1, 3], null, QAT, BOS)).toBe('lose');
+  });
+  it('69. combo with unsupported leg → unknown', () => {
+    expect(resolveBet(makeBet('角球數/不讓分', '大/主'), [1, 3], null, QAT, BOS)).toBe('unknown');
+  });
+});
+
 describe('正確比數 (exact score)', () => {
   it('49. 正確比數 sel 2:1 actual 2-1 → win', () => {
     expect(resolveBet(makeBet('正確比數', '2:1'), [2, 1], null, A, B)).toBe('win');
