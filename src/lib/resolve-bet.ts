@@ -52,11 +52,24 @@ export function resolveBet(
       if (isAway(sel)) return b > a ? 'win' : 'lose';
     }
 
-    // 讓分 X:Y (half-width or full-width colon)
+    // 讓分 X:Y (台灣運彩 3-way handicap, half/full-width colon).
+    //   selection "摩洛哥 2:0" → the NAMED team gives the first number (hx); the
+    //   other team's deduction is the second number (hy, usually 0). The team
+    //   must WIN after deduction — an exact tie means the 和 option won, so the
+    //   team bet LOSES (not void). This is the real 台灣運彩 behaviour.
+    //   "主/客/和" keyword selections keep the legacy positional whole-line
+    //   model (tie on 主/客 → void) for backward compatibility.
     const handicapM = market.match(/讓分?\s*(\d+)\s*[:：]\s*(\d+)/);
     if (handicapM) {
-      const adjA = a - parseInt(handicapM[1], 10);
-      const adjB = b - parseInt(handicapM[2], 10);
+      const hx = parseInt(handicapM[1], 10);
+      const hy = parseInt(handicapM[2], 10);
+      const isKeyword = sel.includes('主') || sel.includes('客') || isDraw(sel);
+      if (!isKeyword) {
+        if (sameTeam(sel, teamA)) return a - hx > b - hy ? 'win' : 'lose';
+        if (sameTeam(sel, teamB)) return b - hx > a - hy ? 'win' : 'lose';
+      }
+      const adjA = a - hx;
+      const adjB = b - hy;
       if (isDraw(sel)) return adjA === adjB ? 'win' : 'lose';
       if (isHome(sel)) return adjA > adjB ? 'win' : adjA === adjB ? 'void' : 'lose';
       if (isAway(sel)) return adjB > adjA ? 'win' : adjA === adjB ? 'void' : 'lose';

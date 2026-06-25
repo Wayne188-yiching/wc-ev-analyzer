@@ -197,9 +197,9 @@ describe('priority ordering', () => {
 });
 
 describe('cross-language team matching (Chinese selection vs English match name)', () => {
-  it('56. 讓分 2:0 · 哥倫比亞 selection, teams English, Colombia covers → win', () => {
-    // Congo DR 0 : Colombia 1; home -2 → adjA=-2, adjB=1; away(哥倫比亞) covers
-    expect(resolveBet(makeBet('讓分 2:0', '哥倫比亞 2:0'), [0, 1], null, 'Congo DR', 'Colombia')).toBe('win');
+  it('56. 讓分 2:0 · 哥倫比亞 (named team gives 2), Colombia won by 1 → lose', () => {
+    // Congo DR 0 : Colombia 1; Colombia -2 → 1-2=-1 vs 0 → behind → lose
+    expect(resolveBet(makeBet('讓分 2:0', '哥倫比亞 2:0'), [0, 1], null, 'Congo DR', 'Colombia')).toBe('lose');
   });
   it('57. 不讓分 主 keyword still works with English teams', () => {
     expect(resolveBet(makeBet('不讓分', '主'), [2, 1], null, 'Congo DR', 'Colombia')).toBe('win');
@@ -214,6 +214,26 @@ describe('cross-language team matching (Chinese selection vs English match name)
   it('60. unrelated Chinese team does not false-match → lose side', () => {
     // selection 法國 is neither Congo DR nor Colombia → no home/away match → unknown
     expect(resolveBet(makeBet('不讓分', '法國'), [2, 1], null, 'Congo DR', 'Colombia')).toBe('unknown');
+  });
+});
+
+describe('讓分 3-way handicap (team-name selection, tie = lose)', () => {
+  const HAI = 'Haiti';
+  const MOR = 'Morocco';
+  it('70. 讓分 2:0 摩洛哥, Morocco won by exactly 2 → tie after handicap → lose', () => {
+    expect(resolveBet(makeBet('讓分 2:0', '摩洛哥 2:0'), [2, 4], null, HAI, MOR)).toBe('lose');
+  });
+  it('71. 讓分 3:0 摩洛哥, Morocco won by 2 < 3 → lose', () => {
+    expect(resolveBet(makeBet('讓分 3:0', '摩洛哥 3:0'), [2, 4], null, HAI, MOR)).toBe('lose');
+  });
+  it('72. 讓分 1:0 摩洛哥, Morocco won by 2 > 1 → win', () => {
+    expect(resolveBet(makeBet('讓分 1:0', '摩洛哥 1:0'), [2, 4], null, HAI, MOR)).toBe('win');
+  });
+  it('73. 讓分 0:2 海地 (Haiti receives 2), Haiti lost by 2 → tie after handicap → lose', () => {
+    expect(resolveBet(makeBet('讓分 0:2', '海地 0:2'), [2, 4], null, HAI, MOR)).toBe('lose');
+  });
+  it('74. 讓分 0:3 海地 (Haiti receives 3), lost by 2 < 3 → win', () => {
+    expect(resolveBet(makeBet('讓分 0:3', '海地 0:3'), [2, 4], null, HAI, MOR)).toBe('win');
   });
 });
 
