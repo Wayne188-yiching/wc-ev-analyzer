@@ -52,6 +52,32 @@ export function resolveBet(
       if (isAway(sel)) return b > a ? 'win' : 'lose';
     }
 
+    // 上半場 / 半場 — first-half 1X2 (不讓分) and first-half 讓分. Uses halfScore.
+    if (/上半場|上半|半場|半场/.test(market) && /不讓分|讓分|1\s*X\s*2/i.test(market) && !/大小/.test(market) && !/正確/.test(market)) {
+      if (!halfScore) return 'unknown';
+      const ha = Number(halfScore[0]);
+      const hb = Number(halfScore[1]);
+      if (Number.isNaN(ha) || Number.isNaN(hb)) return 'unknown';
+      const hcap = market.match(/讓分?\s*(\d+)\s*[:：]\s*(\d+)/);
+      if (hcap) {
+        const hx = parseInt(hcap[1], 10);
+        const hy = parseInt(hcap[2], 10);
+        if (!(sel.includes('主') || sel.includes('客') || isDraw(sel))) {
+          if (sameTeam(sel, teamA)) return ha - hx > hb - hy ? 'win' : 'lose';
+          if (sameTeam(sel, teamB)) return hb - hx > ha - hy ? 'win' : 'lose';
+        }
+        const adjA = ha - hx;
+        const adjB = hb - hy;
+        if (isDraw(sel)) return adjA === adjB ? 'win' : 'lose';
+        if (isHome(sel)) return adjA > adjB ? 'win' : adjA === adjB ? 'void' : 'lose';
+        if (isAway(sel)) return adjB > adjA ? 'win' : adjA === adjB ? 'void' : 'lose';
+      } else {
+        if (isDraw(sel)) return ha === hb ? 'win' : 'lose';
+        if (isHome(sel)) return ha > hb ? 'win' : 'lose';
+        if (isAway(sel)) return hb > ha ? 'win' : 'lose';
+      }
+    }
+
     // 讓分 X:Y (台灣運彩 3-way handicap, half/full-width colon).
     //   selection "摩洛哥 2:0" → the NAMED team gives the first number (hx); the
     //   other team's deduction is the second number (hy, usually 0). The team

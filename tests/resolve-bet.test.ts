@@ -237,6 +237,29 @@ describe('讓分 3-way handicap (team-name selection, tie = lose)', () => {
   });
 });
 
+describe('上半場 first-half markets', () => {
+  const QAT = 'Qatar';
+  const BOS = 'Bosnia and Herzegovina';
+  it('75. 上半場不讓分 · 和局, half 1-2 → not draw → lose', () => {
+    expect(resolveBet(makeBet('上半場不讓分', '和局'), [1, 3], [1, 2], QAT, BOS)).toBe('lose');
+  });
+  it('76. 上半場不讓分 · 客, half 1-2 away ahead → win', () => {
+    expect(resolveBet(makeBet('上半場不讓分', '客'), [1, 3], [1, 2], QAT, BOS)).toBe('win');
+  });
+  it('77. 上半場不讓分 · 主, half 1-2 home behind → lose', () => {
+    expect(resolveBet(makeBet('上半場不讓分', '主'), [1, 3], [1, 2], QAT, BOS)).toBe('lose');
+  });
+  it('78. 上半場不讓分 with no halfScore → unknown', () => {
+    expect(resolveBet(makeBet('上半場不讓分', '和局'), [1, 3], null, QAT, BOS)).toBe('unknown');
+  });
+  it('79. 上半場讓分 1:0 波赫 (Bosnia gives 1 at half), half 1-2 margin 1 = line → lose', () => {
+    expect(resolveBet(makeBet('上半場讓分 1:0', '波赫 1:0'), [1, 3], [1, 2], QAT, BOS)).toBe('lose');
+  });
+  it('80. 上半場大小 2.5 · 大, half total 3 → win (still routes to 半場大小)', () => {
+    expect(resolveBet(makeBet('上半場大小 2.5', '大'), [1, 3], [1, 2], QAT, BOS)).toBe('win');
+  });
+});
+
 describe('正確進球數 (exact goal count)', () => {
   const QAT = 'Qatar';
   const BOS = 'Bosnia and Herzegovina';
